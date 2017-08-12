@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity" >
+
+    <Button
+        android:id="@+id/enable_zoom"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:text="disable zoom"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"/>
+
+    <Button
+        android:id="@+id/bound"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="bound"
+        android:layout_toRightOf="@id/enable_zoom"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"/>
+
+    <Button
+        android:id="@+id/gallery"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@id/bound"
+        android:layout_marginLeft="10dp"
+        android:text="gallery"/>
+
+    <Button
+        android:id="@+id/undo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/bound"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:text="undo"/>
+    <Button
+        android:id="@+id/save"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@id/undo"
+        android:layout_below="@id/bound"
+        android:layout_marginRight="5dp"
+        android:layout_marginLeft="5dp"
+        android:text="save"/>
+    <Button
+        android:id="@+id/reset"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@id/save"
+        android:layout_below="@id/bound"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:text="reset"/>
+    <Button
+        android:id="@+id/done"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@id/reset"
+        android:layout_below="@id/gallery"
+        android:text="done"/>
+
+
+    <!--<TODO:Done button as floating action button-->
+
+
+    <com.github.chrisbanes.photoview.PhotoView
+        android:id="@+id/zoom_iv"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@android:drawable/ic_menu_gallery" />
+
+    <com.project.ada.silversparro.DrawableView
+        android:id="@+id/drawble_view"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_alignBottom="@id/zoom_iv"
+        android:layout_alignTop="@id/zoom_iv" />
+</RelativeLayout>
