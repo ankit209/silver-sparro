@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity" >
+    tools:context=".core.MainActivity" >
 
     <Button
         android:id="@+id/enable_zoom"
@@ -72,12 +72,17 @@
         android:id="@+id/zoom_iv"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@android:drawable/ic_menu_gallery" />
+        android:src="@drawable/image3"/>
 
-    <com.project.ada.silversparro.DrawableView
+    <com.project.ada.silversparro.views.DrawableView
         android:id="@+id/drawble_view"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignBottom="@id/zoom_iv"
         android:layout_alignTop="@id/zoom_iv" />
+
+    <com.project.ada.silversparro.views.ResizableRectangleView
+        android:id="@+id/rectangle_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
 </RelativeLayout>

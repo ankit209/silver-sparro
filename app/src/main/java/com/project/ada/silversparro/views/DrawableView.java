@@ -1,4 +1,4 @@
-package com.project.ada.silversparro;
+package com.project.ada.silversparro.views;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -12,6 +12,8 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
+
+import com.project.ada.silversparro.R;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -83,6 +85,9 @@ public class DrawableView extends View {
         drawPath = new Path();
         drawPaint = new Paint();
 
+        if (allRectF.size() > 0){
+            allRectF.remove(0);
+        }
 
         //cursor attributes
         drawPaint.setColor(ContextCompat.getColor(context,paintColor));
@@ -149,7 +154,6 @@ public class DrawableView extends View {
                     drawPath.moveTo(touchX, touchY);
                     paths.add(drawPath);
                     break;
-                case MotionEvent.ACTION_POINTER_DOWN:
 
                 case MotionEvent.ACTION_MOVE:
 //                    Log.d("DrawableView", "ACTION_MOVE");
@@ -230,4 +234,11 @@ public class DrawableView extends View {
 //        System.out.println("paths__________" + paths);
     }
 
+    public RectF getRect() {
+        return rect;
+    }
+
+    public void setRect(RectF rect) {
+        this.rect = rect;
+    }
 }

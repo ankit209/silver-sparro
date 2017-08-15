@@ -1,4 +1,4 @@
-package com.project.ada.silversparro;
+package com.project.ada.silversparro.core;
 
 import android.Manifest;
 import android.app.Activity;
@@ -23,6 +23,9 @@ import android.widget.Toast;
 
 import com.github.chrisbanes.photoview.OnMatrixChangedListener;
 import com.github.chrisbanes.photoview.PhotoView;
+import com.project.ada.silversparro.R;
+import com.project.ada.silversparro.views.DrawableView;
+import com.project.ada.silversparro.views.ResizableRectangleView;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,15 +34,17 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import static android.content.ContentValues.TAG;
 import static com.project.ada.silversparro.R.id.save;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class MainActivity extends Activity implements View.OnClickListener {
 
+    private static final String TAG = "MainActivity";
+
 
     private DrawableView drawbleView;
     private PhotoView touchImageView;
+    private ResizableRectangleView rectangleView;
 
     private Button enableZoomBtn;
     private Button setBoundingBox;
@@ -57,7 +62,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private String selectedImagePath;
     private String filemanagerstring;
 
-    private ArrayList<RectF> screenRectF = new ArrayList<>();
+    private RectF latestScreenRect;
+    private RectF initialScreenRect;
+
+    /**
+     * Array containing a screen rectangle for every bounding rectangle present in drawbleView.savedRectF
+     */
     private ArrayList<RectF> savedScreenRectF = new ArrayList<>();
 
 
@@ -70,6 +80,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         drawbleView = (DrawableView) findViewById(R.id.drawble_view);
         touchImageView = (PhotoView) findViewById(R.id.zoom_iv);
+        rectangleView = (ResizableRectangleView) findViewById(R.id.rectangle_view);
 
 //        screenRectF.add()
 
@@ -82,14 +93,18 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 Log.d(TAG, "onMatrixChanged:" + rect);
                 //TODO:intialize screenRcectF with the original coordinates of pic
                 //bug: crashes sometimes----- Disable zooming -> make a bound -> undo.
-                screenRectF.add(new RectF(rect.left,rect.top,rect.right,rect.bottom));
-                System.out.println("-------_________screenRectF__________-------- "+ screenRectF);
+                if (initialScreenRect == null){
+                    initialScreenRect = new RectF(rect.left,rect.top,rect.right,rect.bottom);
+                }
+                latestScreenRect = new RectF(rect.left,rect.top,rect.right,rect.bottom);
                 //iteration over only those boxes which are saved.
                 for(int i=0; i<drawbleView.savedRectF.size(); i++) {
-                    System.out.println("-------------loop working for savedRectF.get(i)--------------- " + drawbleView.savedRectF.get(i));
-                    RectF newRect = originalCoordinates(rect,savedScreenRectF.get(i), drawbleView.savedRectF.get(i), drawbleView.savedScales.get(i),touchImageView.getScale());
+                    Log.d(TAG, "-------------loop working for savedRectF.get(i)--------------- " + drawbleView.savedRectF.get(i));
+                    RectF newRect = originalCoordinates(rect,savedScreenRectF.get(i),
+                            drawbleView.savedRectF.get(i), drawbleView.savedScales.get(i),
+                            touchImageView.getScale());
                     drawbleView.changingRectF.set(i,newRect);
-                    drawbleView.rect = newRect;
+                    drawbleView.setRect(newRect);
                 }
                 
                 for(int i=drawbleView.allRectF.size()-1;i>=0;i--){
@@ -99,7 +114,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     }
                     else {break;}
                 }
-                System.out.println(drawbleView.allRectF);
+                Log.d(TAG, "onMatrixChanged: allRectF" + drawbleView.allRectF);
 
                 //TODO: remove the unsaved boxes
 
@@ -128,11 +143,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         int id = v.getId();
-        System.out.println("################# onClick #################");
-//        System.out.println("___________touchImageView.getScale()__________ " + touchImageView.getScale());
-//        RectF rect = displayRect();
-//        System.out.println("_________________touchImageView.getTranslationY() " + touchImageView.getTranslationY() + "____________");
-//        System.out.println("___________rect______" + rect + "____________");
+        Log.d(TAG, "################# onClick #################");
         switch (id) {
             case R.id.enable_zoom:
                 if (enableZoomBtn.getText().equals("disable zoom")) {
@@ -146,26 +157,23 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
             case R.id.undo:
                 /*TODO: toast the user in if condition that the previous rectangle has been added to recFs, user will have to reset the image in order to change*/
-                if (drawbleView.savedRectF.contains(drawbleView.rect)) {
+                if (drawbleView.savedRectF.contains(drawbleView.getRect())) {
                     break;
                 } else {
                     drawbleView.onClickUndo();
 //                    drawbleView.rect.setEmpty();
                     if(drawbleView.allRectF.size()!=0) {
-                        drawbleView.rect = drawbleView.allRectF.get(drawbleView.allRectF.size()-1);
+                        drawbleView.setRect(drawbleView.allRectF.get(drawbleView.allRectF.size()-1));
 //                        drawbleView.rect = drawbleView.allRectF.get(drawbleView.allRectF.size() - 1);       //sets rect to the last rect which was made before the current rect.
-                    }                                                                                        // allRectF stores all the rect (even those which are not saved)
-                    else {drawbleView.rect.setEmpty();}
-//                    System.out.println("-------allRectF------- " + drawbleView.allRectF);
+                    }
+                    else {drawbleView.getRect().setEmpty();}
                 }
-//                System.out.println("drawbleView.rect ============= " + drawbleView.rect);
-//                System.out.println("drawbleView.savedRectF ============ " + drawbleView.savedRectF);
                 break;
 
             case R.id.gallery:
                 drawbleView.onClickReset();
                 loadImagefromGallery();
-                System.out.println("************************" + Environment.getExternalStorageDirectory());
+                Log.d(TAG, "************************" + Environment.getExternalStorageDirectory());
                 break;
             
             case R.id.bound:
@@ -178,35 +186,33 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 }
                 else{
                     drawbleView.onClickSave(touchImageView.getScale());
-                    int index = screenRectF.size()-1;
-                    RectF r = screenRectF.get(index);
+                    RectF r = latestScreenRect;
                     savedScreenRectF.add(r);
-                    System.out.println("-------------------------rect to be added-------------" + r);
-                    System.out.println("-------------------------screenRectF------------------------ " + screenRectF);
-                    System.out.println("-------------------------savedScreenRectF--------------------------- " + savedScreenRectF);
-                    System.out.println("-------------------------savedRectF------------------------ " + drawbleView.savedRectF);
+                    Log.d(TAG, "-------------------------rect to be added-------------" + r);
+                    Log.d(TAG, "-------------------------savedScreenRectF--------------------------- " + savedScreenRectF);
+                    Log.d(TAG, "-------------------------savedRectF------------------------ " + drawbleView.savedRectF);
                 }
                 break;
             
             case R.id.reset:
                 drawbleView.onClickReset();
                 savedScreenRectF.removeAll(savedScreenRectF);
-                screenRectF.removeAll(screenRectF);
-                System.out.println("-------------------------screenRectF------------------------ " + screenRectF);
-                System.out.println("-------------------------savedScreenRectF--------------------------- " + savedScreenRectF);
+                initialScreenRect = null;
+                latestScreenRect = null;
+                Log.d(TAG, "-------------------------savedScreenRectF--------------------------- " + savedScreenRectF);
                 break;
 
             case R.id.done:
                 ArrayList<RectF> originalCoordinates = new ArrayList<>();
                 for(int i=0;i<=drawbleView.savedRectF.size()-1;i++){
-                    System.out.println("DONE LOOP WORKING");
-                    RectF rect = originalCoordinates(screenRectF.get(0),savedScreenRectF.get(i),drawbleView.savedRectF.get(i),drawbleView.savedScales.get(i),1);
-                    System.out.println("originalRect ======"+rect);
+                    Log.d(TAG, "DONE LOOP WORKING");
+                    RectF rect = originalCoordinates(initialScreenRect,savedScreenRectF.get(i),drawbleView.savedRectF.get(i),drawbleView.savedScales.get(i),1);
+                    Log.d(TAG, "originalRect ======"+rect);
                     originalCoordinates.add(rect);
-                    System.out.println("originalCoordinates ======"+originalCoordinates);
+                    Log.d(TAG, "originalCoordinates ======"+originalCoordinates);
                 }
                 String body = convertArrayToString(originalCoordinates);
-                System.out.println("body---------------------> " + body.length());
+                Log.d(TAG, "body---------------------> " + body.length());
                 createTextFile(getApplicationContext(),body);
                 //since we want all the arrays to reset
                 drawbleView.onClickReset();
@@ -225,7 +231,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
             startActivityForResult(Intent.createChooser(intent,
                     "Select Picture"), SELECT_PICTURE);
         }
-
     }
 
 
@@ -241,7 +246,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
 
     private void loadImageFromFilepath(String filepath) {
-        System.out.println(filepath);
+        Log.d(TAG, filepath);
         Bitmap myBitmap = BitmapFactory.decodeFile(filepath);
         touchImageView.setImageBitmap(myBitmap);
     }
@@ -297,26 +302,22 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
 
 
-    public RectF originalCoordinates(RectF currentScreenDimension, RectF oldScreenDimension, RectF box, float oldScale, float newScale){
+    public RectF originalCoordinates(RectF currentScreenRect, RectF savedScreenRect, RectF savedBox,
+                                     float savedScale, float currentScale){
 
-        float diffLeft = box.left - oldScreenDimension.left;
-//        System.out.println("oldScreenDimension============ " + oldScreenDimension);
-//        System.out.println("diffLeft============ " + diffLeft);
-        float diffRight = box.right -oldScreenDimension.right;
-        float diffTop = box.top - oldScreenDimension.top;
-        float diffBottom = box.bottom - oldScreenDimension.bottom;
+        float diffLeft = savedBox.left - savedScreenRect.left;
+        float diffTop = savedBox.top - savedScreenRect.top;
+        float diffRight = savedBox.right -savedScreenRect.right;
+        float diffBottom = savedBox.bottom - savedScreenRect.bottom;
 
 
-        float newLeft = diffLeft * newScale/oldScale + currentScreenDimension.left;
-//        System.out.println("newScale/oldScale ============ " + newScale/oldScale);
-//        System.out.println("currentScreenDimension.left ============ " + currentScreenDimension);
-//        System.out.println("newLeft ============ " + newLeft);
-        float newRight = diffRight * newScale/oldScale + currentScreenDimension.right;
-        float newTop = diffTop * newScale/oldScale + currentScreenDimension.top;
-        float newBottom = diffBottom * newScale/oldScale + currentScreenDimension.bottom ;
+        float newLeft = diffLeft * currentScale/savedScale + currentScreenRect.left;
+        float newRight = diffRight * currentScale/savedScale + currentScreenRect.right;
+        float newTop = diffTop * currentScale/savedScale + currentScreenRect.top;
+        float newBottom = diffBottom * currentScale/savedScale + currentScreenRect.bottom ;
 
         RectF newRect = new RectF(newLeft,newTop,newRight,newBottom);
-        System.out.println("_________newRect_________ " + newRect);
+        Log.d(TAG, "_________newRect_________ " + newRect);
 
         return newRect;
     }
@@ -374,8 +375,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 stringBuffer.append("\n");
             }
             fileReader.close();
-            System.out.println("Contents of file:");
-            System.out.println(stringBuffer.toString());
+            Log.d(TAG, "Contents of file: " + stringBuffer.toString());
         } catch (IOException e) {
             e.printStackTrace();
         }
