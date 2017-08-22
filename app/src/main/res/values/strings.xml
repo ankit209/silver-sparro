@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">SilverSparro</string>
+    <string name="delete">Delete</string>
+    <string name="unlock">Unlock</string>
+    <string name="lock">Lock</string>
+    <string name="save_and_next">Save and Next</string>
 </resources>

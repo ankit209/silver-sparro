@@ -2,6 +2,7 @@ package com.project.ada.silversparro.data;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,7 +26,7 @@ public class Annotation {
     private int imageHeight;
 
     @SerializedName("boxes")
-    private List<Box> boxes;
+    private List<Box> boxes = new ArrayList<>();
 
     public String getDataSet() {
         return dataSet;

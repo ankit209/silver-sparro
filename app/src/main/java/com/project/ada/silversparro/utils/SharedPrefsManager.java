@@ -1,4 +1,4 @@
-package com.project.ada.silversparro.core;
+package com.project.ada.silversparro.utils;
 
 /**
  * Created by ankitmaheshwari on 8/15/17.

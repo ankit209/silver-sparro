@@ -1,22 +1,27 @@
 package com.project.ada.silversparro.views;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Point;
 import android.graphics.RectF;
 import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Toast;
 
 import com.project.ada.silversparro.R;
+import com.project.ada.silversparro.data.BoundingRect;
+import com.project.ada.silversparro.utils.Utils;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.List;
+
+import static com.project.ada.silversparro.Constants.PAINT_STROKE_WIDTH;
+import static com.project.ada.silversparro.Constants.RECT_LINE_STROKE_WIDTH;
 
 /**
  * Created by ada on 23/6/17.
@@ -24,70 +29,52 @@ import java.util.Collections;
 
 public class DrawableView extends View {
 
+    private static final String TAG = "DrawableView";
+
     public int width;
     public  int height;
     private boolean isEditable;
     private Path drawPath;
-    private Paint canvasPaint;
     private Paint drawPaint;
-    Paint rectPaint = new Paint();
-    Paint finalPaint = new Paint();
+    private Paint rectPaint;
     private int paintColor = R.color.colorPrimaryDark;
-    private int rectPaintColor = R.color.colorAccent;
-    private int finalPaintColor = R.color.black;
+    float left = Float.MAX_VALUE;
+    float top = Float.MAX_VALUE;
+    float right = 0;
+    float bottom = 0;
 
-    public ArrayList<Path> paths = new ArrayList<>();
-    public ArrayList<Float> xCoordinates = new ArrayList<>();
-    public ArrayList<Float> yCoordinates = new ArrayList<>();
-    double xMin = Integer.MAX_VALUE;
-    double yMin = Integer.MAX_VALUE;
-    double xMax = Integer.MIN_VALUE;
-    double yMax = Integer.MIN_VALUE;
-    RectF rect = new RectF();
 
-    public float[] rectangle = new float[4];
-
-    public ArrayList<RectF> allRectF = new ArrayList<>();
-    public ArrayList<RectF> savedRectF = new ArrayList<>();
-
-    //changingRectF stores the coordinates of the boxes on changing scale (for rendering)
-    public ArrayList<RectF> changingRectF = new ArrayList<>();
-    //savedScales stores the scale at the same index as that of its corresponding saved box.
-    public ArrayList<Float> savedScales = new ArrayList<>();
-
-    //savedScreenRectF stores the coordinates of the screen for all the boxes.
-//    public ArrayList<RectF> screenRectF = new ArrayList<>();
-//    //savedScreenRectF stores the coordinates of the screen at which a box was saved.
-//    public ArrayList<RectF> savedScreenRectF = new ArrayList<>();
+    Listener listener;
 
 
     public DrawableView(Context context) {
         super(context);
+        setupDrawing(context);
     }
     public DrawableView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        this.canvasPaint = new Paint(Paint.DITHER_FLAG);
         setupDrawing(context);
     }
     public DrawableView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        setupDrawing(context);
     }
+
+    public void setListener(Listener listener){
+        this.listener = listener;
+    }
+
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         this.height = h;
         this.width = w;
-        Resources res = getResources();
     }
 
 
     private void setupDrawing(Context context) {
-        drawPath = new Path();
-        drawPaint = new Paint();
 
-        if (allRectF.size() > 0){
-            allRectF.remove(0);
-        }
+        drawPaint = new Paint();
 
         //cursor attributes
         drawPaint.setColor(ContextCompat.getColor(context,paintColor));
@@ -95,19 +82,18 @@ public class DrawableView extends View {
         drawPaint.setAntiAlias(true);
         drawPaint.setDither(true);
         drawPaint.setStyle(Paint.Style.STROKE);
-//        drawPaint.setStrokeJoin(Paint.Join.ROUND);
-//        drawPaint.setStrokeCap(Paint.Cap.ROUND);
-        drawPaint.setStrokeWidth(80);
+        drawPaint.setStrokeWidth(Utils.convertDpToPixel(getContext(), PAINT_STROKE_WIDTH));
 
-        rectPaint.setColor(ContextCompat.getColor(context,rectPaintColor));
-        rectPaint.setAlpha(150);
+        rectPaint = new Paint();
+
+        //cursor attributes
+        rectPaint.setColor(ContextCompat.getColor(context,R.color.red));
+        rectPaint.setAlpha(80);
+        rectPaint.setAntiAlias(true);
+        rectPaint.setDither(true);
         rectPaint.setStyle(Paint.Style.STROKE);
-        rectPaint.setStrokeWidth(5);
+        rectPaint.setStrokeWidth(Utils.convertDpToPixel(getContext(), RECT_LINE_STROKE_WIDTH));
 
-        finalPaint.setColor(ContextCompat.getColor(context, finalPaintColor));
-        finalPaint.setAlpha(150);
-        finalPaint.setStyle(Paint.Style.STROKE);
-        finalPaint.setStrokeWidth(5);
     }
 
     public void setDrawingEnabled(boolean isEditable){
@@ -117,65 +103,100 @@ public class DrawableView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-
-        for (Path p : paths) {                                  //for undo functionality
-            canvas.drawPath(p, drawPaint);
-
+        if (drawPath != null){
+            canvas.drawPath(drawPath, drawPaint);
         }
-        if(rect!=null) {
-            canvas.drawRect(rect, rectPaint);
-                invalidate();
-        }
-        for (int i=0;i<changingRectF.size();i++){
-            canvas.drawRect(changingRectF.get(i), finalPaint);
-            invalidate(); 
+        if (listener != null){
+            for (BoundingRect rect : listener.fetchSavedRectanglesToDraw()){
+                canvas.drawRect(rect.getRect(), rectPaint);
+            }
         }
     }
+
+    public void refresh(){
+        invalidate();
+    }
+
+    private void resetRectanlgeCoordinates(){
+        left = Integer.MAX_VALUE;
+        top = Integer.MAX_VALUE;
+        right = Integer.MIN_VALUE;
+        bottom = Integer.MIN_VALUE;
+    }
+
+    final GestureDetector gestureDetector = new GestureDetector(this.getContext(),
+            new GestureDetector.SimpleOnGestureListener() {
+                public void onLongPress(MotionEvent e) {
+                    Log.e(TAG, "onLongPress, x = " + e.getX() + ", y = " + e.getY());
+                    // Transform the point to original image's scale and then check if it is inside one of the saved rectangles
+                    Point point = new Point(Math.round(e.getX()), Math.round(e.getY()));
+                    if (listener.highlightBoundingRectangle(point)){
+                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                        longPressConsumed = true;
+                    }
+                }
+            });
+
+    boolean longPressConsumed = false;
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {            //add to paths
         if(isEditable){
-            float touchX = event.getX();
-            xCoordinates.add(touchX);
-            float touchY = event.getY();
-            yCoordinates.add(touchY);
-
+            gestureDetector.onTouchEvent(event);
+            float touchX = event.getX() - 10;
+            float touchY = event.getY() - 10;
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     Log.d("DrawableView", "ACTION_DOWN");
                     //clear x ,y coordinates ,rectangle etc of previous instance
-                    xCoordinates.clear();
-                    yCoordinates.clear();
-                    rectangle = new float[4];
-                    xMax = yMax = Integer.MIN_VALUE;
-                    xMin = yMin = Integer.MAX_VALUE;
-
+                    resetRectanlgeCoordinates();
                     drawPath = new Path();
                     drawPath.moveTo(touchX, touchY);
-                    paths.add(drawPath);
                     break;
-
                 case MotionEvent.ACTION_MOVE:
-//                    Log.d("DrawableView", "ACTION_MOVE");
                     drawPath.lineTo(touchX, touchY);
                     break;
                 case MotionEvent.ACTION_UP:
-                    Log.d("DrawableView", "ACTION_UP");
-                    drawPath.lineTo(touchX, touchY);
-                    rectangle[0] = Collections.min(xCoordinates) - drawPaint.getStrokeWidth()/4;
-                    rectangle[1] = Collections.min(yCoordinates) - drawPaint.getStrokeWidth()/2;
-                    rectangle[2] = Collections.max(xCoordinates)+ drawPaint.getStrokeWidth()/4;
-                    rectangle[3] = Collections.max(yCoordinates)+ drawPaint.getStrokeWidth()/2;
-                    rect = new RectF(rectangle[0],rectangle[1],rectangle[2],rectangle[3]);
-                    allRectF.add(rect);
-                    System.out.println("------------rect-------" +rect);
-                    System.out.println("------------allRectF-------"+ allRectF);
-                    System.out.println("------------savedRectF-------"+ savedRectF);
-//                    System.out.println(paths);
+                    Log.d(TAG, "ACTION_UP");
+                    if (!longPressConsumed){
+                        drawPath.lineTo(touchX, touchY);
+                        float[] rectangle = new float[4];
+                        rectangle[0] = left
+                                - drawPaint.getStrokeWidth()/2;
+                        rectangle[1] = top
+                                - drawPaint.getStrokeWidth()/2;
+                        rectangle[2] = right
+                                + drawPaint.getStrokeWidth()/2;
+                        rectangle[3] = bottom
+                                + drawPaint.getStrokeWidth()/2;
+                        RectF freshRect = new RectF(rectangle[0],rectangle[1],rectangle[2],rectangle[3]);
+                        Log.d(TAG, "Freshly baked Rect: " + freshRect);
+                        if (listener != null){
+                            listener.onPaintRectangle(freshRect);
+                        }
+                        drawPath = null;
+                    }else {
+                        drawPath = null;
+                        longPressConsumed = false;
+                    }
                     break;
                 default:
                     return false;
             }
+
+            if (touchX <= left) {
+                left = touchX;
+            }
+            if (touchX >= right){
+                right = touchX;
+            }
+            if (touchY <= top){
+                top = touchY;
+            }
+            if (touchY >= bottom){
+                bottom = touchY;
+            }
+
         } else{
             return false;
         }
@@ -183,62 +204,25 @@ public class DrawableView extends View {
         return true;
     }
 
+    public interface Listener{
 
-    public void onClickUndo() {
-        if (paths.size() > 0) {
-            paths.remove(paths.size() - 1);
-            System.out.println("paths **************** " + paths);
-            allRectF.remove(allRectF.size()-1);
-            invalidate();
-        } else {
-            Toast.makeText(getContext(), "Invalid Operation", Toast.LENGTH_SHORT).show();
-            //TODO: toast the user
-        }
+        /**
+         * Draws the bounding rectangle immediatelt after user finishes stroking by taking his/her finger up
+         * @param paitedRectangle
+         */
+        void onPaintRectangle(RectF paitedRectangle);
 
-    }
+        /**
+         * Fetches the transformed coordinated of all the saved rectangles which are currently not activated
+         * @return
+         */
+        List<BoundingRect> fetchSavedRectanglesToDraw();
 
-
-    public void onClickBound(){
-        Canvas canvas = new Canvas();
-//        Paint paint = new Paint();
-//        canvas.drawRect(rect,paint);
-//
-        System.out.println(rect);
-    }
-    
-
-    public void onClickSave(float scale){
-        savedScales.add(scale);
-        changingRectF.add(rect);
-        savedRectF.add(rect);
-        paths.remove(paths.size()-1);
-
-//        System.out.println("________________savedRectF_______________ " + savedRectF);
-//        System.out.println("________________changingRectF____________ " + changingRectF);
-//        System.out.println("________________savedRectF_______________ "+ savedScales);
-    }
-
-
-    public void onClickReset(){
-//        originalRectF.removeAll(originalRectF);
-        changingRectF.removeAll(changingRectF);
-//        screenRectF.removeAll(screenRectF);
-//        savedScreenRectF.removeAll(savedScreenRectF);
-        savedRectF.removeAll(savedRectF);
-        savedScales.removeAll(savedScales);
-        paths.removeAll(paths);
-        rect.setEmpty();
-        System.out.println("__________savedRectF_________ " + savedRectF);
-        System.out.println("------------savedRectF------- "+ savedScales);
-//        System.out.println("------------screenRectF------- "+ screenRectF);
-//        System.out.println("paths__________" + paths);
-    }
-
-    public RectF getRect() {
-        return rect;
-    }
-
-    public void setRect(RectF rect) {
-        this.rect = rect;
+        /**
+         * It the input point lies inside a saved rectangle, it will get highlighted i.e. edit mode will be activated
+         * @param point inputPoint
+         * @return true if input point does lie inside a saved rectangle and bounding rectangle got highlighted
+         */
+        boolean highlightBoundingRectangle(Point point);
     }
 }

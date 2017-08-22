@@ -7,17 +7,17 @@ import android.graphics.RectF;
  * Created by ankitmaheshwari on 8/13/17.
  */
 
-public class BoundingBox {
+public class BoundingRect {
 
     private float imageWidth;
 
     private float imageHeight;
 
-    private RectF boxRect;
+    private RectF rect;
 
     private String boxClass;
 
-    public BoundingBox(float imageWidth, float imageHeight) {
+    public BoundingRect(float imageWidth, float imageHeight) {
         this.imageWidth = imageWidth;
         this.imageHeight = imageHeight;
     }
@@ -30,12 +30,12 @@ public class BoundingBox {
         return imageHeight;
     }
 
-    public RectF getBoxRect() {
-        return boxRect;
+    public RectF getRect() {
+        return rect;
     }
 
-    public void setBoxRect(RectF boxRect) {
-        this.boxRect = boxRect;
+    public void setRect(RectF rect) {
+        this.rect = rect;
     }
 
     public String getBoxClass() {

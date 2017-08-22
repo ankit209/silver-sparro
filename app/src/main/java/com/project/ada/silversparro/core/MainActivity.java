@@ -2,73 +2,70 @@ package com.project.ada.silversparro.core;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.Point;
 import android.graphics.RectF;
-import android.net.Uri;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.MediaStore;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
 
 import com.github.chrisbanes.photoview.OnMatrixChangedListener;
 import com.github.chrisbanes.photoview.PhotoView;
+import com.project.ada.silversparro.AnnotationsEditor;
 import com.project.ada.silversparro.R;
+import com.project.ada.silversparro.data.Annotation;
+import com.project.ada.silversparro.data.BoundingRect;
+import com.project.ada.silversparro.utils.SharedPrefsManager;
+import com.project.ada.silversparro.utils.SilverImageLoader;
+import com.project.ada.silversparro.utils.Utils;
 import com.project.ada.silversparro.views.DrawableView;
 import com.project.ada.silversparro.views.ResizableRectangleView;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
-import static com.project.ada.silversparro.R.id.save;
+import static com.project.ada.silversparro.Constants.PREFS_IMAGE_URL_UNDER_PROGRESS;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-public class MainActivity extends Activity implements View.OnClickListener {
+public class MainActivity extends Activity implements View.OnClickListener, OnMatrixChangedListener, DrawableView.Listener,
+        ResizableRectangleView.SaveListener {
 
-    private static final String TAG = "MainActivity";
+    private static final String TAG = "SilverSparroActivity";
 
-
-    private DrawableView drawbleView;
-    private PhotoView touchImageView;
-    private ResizableRectangleView rectangleView;
-
-    private Button enableZoomBtn;
-    private Button setBoundingBox;
-    private Button saveButton;
-    private Button undoButton;
-    private Button openGallery;
-    private Button resetButton;
-    private Button doneButton;
-
-    /*  this is the action code we use in our intent,
-        this way we know we're looking at the response from our own action
-    */
-    private static final int SELECT_PICTURE = 1;
-
-    private String selectedImagePath;
-    private String filemanagerstring;
-
-    private RectF latestScreenRect;
-    private RectF initialScreenRect;
 
     /**
-     * Array containing a screen rectangle for every bounding rectangle present in drawbleView.savedRectF
+     * Middle layer in Drawing views hierarchy
+     * It draws all the saved rectangles on canvas, their position changes when zoomPanView Matrix changes
      */
-    private ArrayList<RectF> savedScreenRectF = new ArrayList<>();
+    private DrawableView drawbleView;
+    /**
+     * Bottom most layer in Drawing views hierarchy
+     * It draws the background image and translates and zooms it when zoom is unlocked
+     */
+    private PhotoView zoomPanView;
+    /**
+     * Topmost layer in Drawing views hierarchy
+     */
+    private ResizableRectangleView rectangleView;
+
+    private View mainContainer;
+
+    private AnnotationsEditor annotationsEditor;
+
+    private Button deleteButton;
+    private Button unlockZoomButton;
+    private Button saveAndNextButton;
+
+    private DrawState drawState;
+
+    private RectF latestScreenRect;
 
 
     @Override
@@ -79,65 +76,59 @@ public class MainActivity extends Activity implements View.OnClickListener {
         //TODO:if the corresponding text file exists, display the saved boxes
 
         drawbleView = (DrawableView) findViewById(R.id.drawble_view);
-        touchImageView = (PhotoView) findViewById(R.id.zoom_iv);
+        zoomPanView = (PhotoView) findViewById(R.id.zoom_iv);
         rectangleView = (ResizableRectangleView) findViewById(R.id.rectangle_view);
-
-//        screenRectF.add()
+        mainContainer = (View) findViewById(R.id.main_container);
 
         /*
         * gives the relative coordinates of the image with respect to the current view
         */
-        touchImageView.setOnMatrixChangeListener(new OnMatrixChangedListener() {
-            @Override
-            public void onMatrixChanged(RectF rect) {
-                Log.d(TAG, "onMatrixChanged:" + rect);
-                //TODO:intialize screenRcectF with the original coordinates of pic
-                //bug: crashes sometimes----- Disable zooming -> make a bound -> undo.
-                if (initialScreenRect == null){
-                    initialScreenRect = new RectF(rect.left,rect.top,rect.right,rect.bottom);
-                }
-                latestScreenRect = new RectF(rect.left,rect.top,rect.right,rect.bottom);
-                //iteration over only those boxes which are saved.
-                for(int i=0; i<drawbleView.savedRectF.size(); i++) {
-                    Log.d(TAG, "-------------loop working for savedRectF.get(i)--------------- " + drawbleView.savedRectF.get(i));
-                    RectF newRect = originalCoordinates(rect,savedScreenRectF.get(i),
-                            drawbleView.savedRectF.get(i), drawbleView.savedScales.get(i),
-                            touchImageView.getScale());
-                    drawbleView.changingRectF.set(i,newRect);
-                    drawbleView.setRect(newRect);
-                }
-                
-                for(int i=drawbleView.allRectF.size()-1;i>=0;i--){
-                    RectF r = drawbleView.allRectF.get(i);
-                    if(!drawbleView.changingRectF.contains(r)){
-                        drawbleView.allRectF.remove(r);
-                    }
-                    else {break;}
-                }
-                Log.d(TAG, "onMatrixChanged: allRectF" + drawbleView.allRectF);
-
-                //TODO: remove the unsaved boxes
-
-            }
-        });
-
-
-        enableZoomBtn = (Button) findViewById(R.id.enable_zoom);
-        setBoundingBox = (Button) findViewById(R.id.bound);
-        saveButton = (Button) findViewById(save);
-        undoButton = (Button) findViewById(R.id.undo);
-        openGallery = (Button) findViewById(R.id.gallery);
-        resetButton = (Button) findViewById(R.id.reset);
-        doneButton = (Button) findViewById(R.id.done);
-
-        enableZoomBtn.setOnClickListener(this);
-        undoButton.setOnClickListener(this);
-        setBoundingBox.setOnClickListener(this);
-        saveButton.setOnClickListener(this);
-        resetButton.setOnClickListener(this);
-        doneButton.setOnClickListener(this);
-        openGallery.setOnClickListener(this);
+        zoomPanView.setOnMatrixChangeListener(this);
+        drawbleView.setListener(this);
+        rectangleView.setListener(this);
         drawbleView.setDrawingEnabled(false);
+        setDrawState(DrawState.ZOOM_PAN);
+
+
+        deleteButton = (Button) findViewById(R.id.bt_delete);
+        unlockZoomButton = (Button) findViewById(R.id.bt_unlock_zoom);
+        saveAndNextButton = (Button) findViewById(R.id.bt_save_and_next);
+        deleteButton.setOnClickListener(this);
+        unlockZoomButton.setOnClickListener(this);
+        saveAndNextButton.setOnClickListener(this);
+
+        load();
+
+    }
+
+    private void load(){
+        String imgUrlUnderProgress = SharedPrefsManager.getInstance().getString(PREFS_IMAGE_URL_UNDER_PROGRESS);
+        if (TextUtils.isEmpty(imgUrlUnderProgress)){
+            // TODO: Need to download next image, this is just a temporary hack
+            // Need to download annotation data
+            Drawable drawable = ContextCompat.getDrawable(this, R.drawable.image2);
+            Annotation annotation = Utils.createDummyAnnotation(Utils.drawableToBitmap(drawable));
+            annotationsEditor = new AnnotationsEditor(annotation);
+            //Setting this image as the current image for which annotations are getting created
+            SharedPrefsManager.getInstance().setString(PREFS_IMAGE_URL_UNDER_PROGRESS,
+                    annotation.getImageUrl());
+            Utils.persistAnnotation(annotation);
+
+        }else {
+            Log.d(TAG, "load, fetching persisted annotation at URL: " + imgUrlUnderProgress);
+            Annotation annotation = Utils.getPersistedAnnotation(imgUrlUnderProgress);
+            annotationsEditor = new AnnotationsEditor(annotation);
+        }
+        SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
+    }
+
+
+    public DrawState getDrawState() {
+        return drawState;
+    }
+
+    public void setDrawState(DrawState drawState) {
+        this.drawState = drawState;
     }
 
     @Override
@@ -145,129 +136,83 @@ public class MainActivity extends Activity implements View.OnClickListener {
         int id = v.getId();
         Log.d(TAG, "################# onClick #################");
         switch (id) {
-            case R.id.enable_zoom:
-                if (enableZoomBtn.getText().equals("disable zoom")) {
-                    drawbleView.setDrawingEnabled(true);
-                    enableZoomBtn.setText("enable zoom");
+            case R.id.bt_unlock_zoom:
+                Log.d(TAG, "sceenwidth = " + Utils.getScreenWidthUsingDisplayMetrics(this)
+                        + ", screenHeight = " + Utils.getScreenHeightUsingDisplayMetrics(this));
+                Log.d(TAG, "onClick bt_unlock_zoom, Image width = " + annotationsEditor.getImageWidth()
+                        + ", height = " + annotationsEditor.getImageHeight());
+                Log.d(TAG, "onClick bt_unlock_zoom, view width = " + mainContainer.getWidth()
+                        + ", height = " + mainContainer.getHeight());
+                Log.d(TAG, "onClick bt_unlock_zoom, view X = " + mainContainer.getX()
+                        + ", Y = " + mainContainer.getY());
+                Log.d(TAG, "onClick bt_unlock_zoom, lockButton X = " + unlockZoomButton.getX()
+                        + ", Y = " + unlockZoomButton.getY());
+                Log.d(TAG, "onClick bt_unlock_zoom, deleteButton X = " + deleteButton.getX()
+                        + ", Y = " + deleteButton.getY());
+                if (unlockZoomButton.getText().equals(getString(R.string.lock))) {
+                    lockZoomAndStartPaint();
                 } else {
-                    drawbleView.setDrawingEnabled(false);
-                    enableZoomBtn.setText("disable zoom");
+                    unlockZoomAndPan();
                 }
                 break;
 
-            case R.id.undo:
-                /*TODO: toast the user in if condition that the previous rectangle has been added to recFs, user will have to reset the image in order to change*/
-                if (drawbleView.savedRectF.contains(drawbleView.getRect())) {
-                    break;
-                } else {
-                    drawbleView.onClickUndo();
-//                    drawbleView.rect.setEmpty();
-                    if(drawbleView.allRectF.size()!=0) {
-                        drawbleView.setRect(drawbleView.allRectF.get(drawbleView.allRectF.size()-1));
-//                        drawbleView.rect = drawbleView.allRectF.get(drawbleView.allRectF.size() - 1);       //sets rect to the last rect which was made before the current rect.
-                    }
-                    else {drawbleView.getRect().setEmpty();}
-                }
+            case R.id.bt_delete:
+                annotationsEditor.deleteActiveBox();
+                rectangleView.deactivate();
+                break;
+            
+            case R.id.bt_save_and_next:
+                // Save all the completed rectangles in Annotations Editor and move to the next rectangle
+
                 break;
 
-            case R.id.gallery:
-                drawbleView.onClickReset();
-                loadImagefromGallery();
-                Log.d(TAG, "************************" + Environment.getExternalStorageDirectory());
-                break;
-            
-            case R.id.bound:
-                drawbleView.onClickBound();
-                break;
-            
-            case save:
-                if(drawbleView.allRectF.size()==0){
-                    Toast.makeText(getApplicationContext(), "Invalid Operation", Toast.LENGTH_SHORT).show();
-                }
-                else{
-                    drawbleView.onClickSave(touchImageView.getScale());
-                    RectF r = latestScreenRect;
-                    savedScreenRectF.add(r);
-                    Log.d(TAG, "-------------------------rect to be added-------------" + r);
-                    Log.d(TAG, "-------------------------savedScreenRectF--------------------------- " + savedScreenRectF);
-                    Log.d(TAG, "-------------------------savedRectF------------------------ " + drawbleView.savedRectF);
-                }
-                break;
-            
-            case R.id.reset:
-                drawbleView.onClickReset();
-                savedScreenRectF.removeAll(savedScreenRectF);
-                initialScreenRect = null;
-                latestScreenRect = null;
-                Log.d(TAG, "-------------------------savedScreenRectF--------------------------- " + savedScreenRectF);
-                break;
-
-            case R.id.done:
-                ArrayList<RectF> originalCoordinates = new ArrayList<>();
-                for(int i=0;i<=drawbleView.savedRectF.size()-1;i++){
-                    Log.d(TAG, "DONE LOOP WORKING");
-                    RectF rect = originalCoordinates(initialScreenRect,savedScreenRectF.get(i),drawbleView.savedRectF.get(i),drawbleView.savedScales.get(i),1);
-                    Log.d(TAG, "originalRect ======"+rect);
-                    originalCoordinates.add(rect);
-                    Log.d(TAG, "originalCoordinates ======"+originalCoordinates);
-                }
-                String body = convertArrayToString(originalCoordinates);
-                Log.d(TAG, "body---------------------> " + body.length());
-                createTextFile(getApplicationContext(),body);
-                //since we want all the arrays to reset
-                drawbleView.onClickReset();
-                break;
             default:
                 break;
         }
     }
 
-    //TODO: opens only SilverSparro folder to get image rather than showing all image directories.
-    private void loadImagefromGallery() {
-        if (verifyStoragePermissions(this)) {
-            Intent intent = new Intent();
-            intent.setType("image/*");
-            intent.setAction(Intent.ACTION_GET_CONTENT);
-            startActivityForResult(Intent.createChooser(intent,
-                    "Select Picture"), SELECT_PICTURE);
-        }
-    }
-
-
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
-            if (requestCode == SELECT_PICTURE) {
-                Uri selectedImageUri = data.getData();
-                selectedImagePath = getPath(selectedImageUri);
-                loadImageFromFilepath(selectedImagePath);
-            }
-        }
-    }
-
-
-    private void loadImageFromFilepath(String filepath) {
-        Log.d(TAG, filepath);
-        Bitmap myBitmap = BitmapFactory.decodeFile(filepath);
-        touchImageView.setImageBitmap(myBitmap);
-    }
-
-
-    /*
-     * helper to retrieve the path of an image URI
+    /**
+     * Unlocks zoom and pan feature by making top rectanleView layer and disabling touch on middle drawableView layer
+     * If there are any unsaved rectangles it discards all of them
      */
-    public String getPath(Uri uri) {
-        String[] projection = {MediaStore.Images.Media.DATA};
-        Cursor cursor = managedQuery(uri, projection, null, null, null);
-        if (cursor != null) {
-            /*
-                HERE YOU WILL GET A NULLPOINTER IF CURSOR IS NULL
-                THIS CAN BE, IF YOU USED OI FILE MANAGER FOR PICKING THE MEDIA
-            */
-            int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-            cursor.moveToFirst();
-            return cursor.getString(column_index);
-        } else return null;
+    private void unlockZoomAndPan(){
+        annotationsEditor.deleteActiveBox();
+        rectangleView.deactivate();
+        drawbleView.setDrawingEnabled(false);
+        unlockZoomButton.setText(getString(R.string.lock));
+        setDrawState(DrawState.ZOOM_PAN);
     }
+
+
+    /**
+     * Locks Zoom and Pan and allows painting on the canvas to draw bounding boxes
+     * It also draws the already existing saved rectangles from AnnotationEditor
+     */
+    private void lockZoomAndStartPaint(){
+        drawbleView.setDrawingEnabled(true);
+        annotationsEditor.deleteActiveBox();
+        rectangleView.deactivate();
+        unlockZoomButton.setText(getString(R.string.unlock));
+        setDrawState(DrawState.PAINT_STROKE);
+    }
+
+    private void saveActiveRectangle(){
+        Log.d(TAG, "saveActiveRectangle");
+        RectF activeRect = rectangleView.getCurrentRectF();
+        Log.d(TAG, "Will save activeRectangle: "+ activeRect +" at scale: " + zoomPanView.getScale());
+        BoundingRect boundingRect = createBoundingRect(convertToOriginalCoordinates(activeRect), "dummy_1");
+        annotationsEditor.saveBoundingRect(boundingRect);
+        rectangleView.deactivate();
+        drawbleView.refresh();
+    }
+
+    private BoundingRect createBoundingRect(RectF rectF, String boxClass){
+        BoundingRect boundingRect = new BoundingRect(annotationsEditor.getImageWidth(), annotationsEditor.getImageHeight());
+        boundingRect.setBoxClass(boxClass);
+        boundingRect.setRect(rectF);
+        return boundingRect;
+    }
+
 
     // Storage Permissions
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -301,84 +246,92 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
 
+    @Override
+    public void onMatrixChanged(RectF rect) {
+        Log.d(TAG, "onMatrixChanged:" + rect);
+        latestScreenRect = new RectF(rect.left,rect.top,rect.right,rect.bottom);
 
-    public RectF originalCoordinates(RectF currentScreenRect, RectF savedScreenRect, RectF savedBox,
-                                     float savedScale, float currentScale){
-
-        float diffLeft = savedBox.left - savedScreenRect.left;
-        float diffTop = savedBox.top - savedScreenRect.top;
-        float diffRight = savedBox.right -savedScreenRect.right;
-        float diffBottom = savedBox.bottom - savedScreenRect.bottom;
-
-
-        float newLeft = diffLeft * currentScale/savedScale + currentScreenRect.left;
-        float newRight = diffRight * currentScale/savedScale + currentScreenRect.right;
-        float newTop = diffTop * currentScale/savedScale + currentScreenRect.top;
-        float newBottom = diffBottom * currentScale/savedScale + currentScreenRect.bottom ;
-
-        RectF newRect = new RectF(newLeft,newTop,newRight,newBottom);
-        Log.d(TAG, "_________newRect_________ " + newRect);
-
-        return newRect;
+        Log.d(TAG, "onMatrixChanged, rectF = " + rect);
+        // Update the Saved boxes in DrawableView
+        //iteration over only those boxes which are saved.
+        drawbleView.refresh();
     }
 
 
-    /* Checks if external storage is available for read and write */
-    public boolean isExternalStorageWritable() {
-        String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
+    @Override
+    public void onPaintRectangle(RectF paitedRectangle) {
+        Log.d(TAG, "onPaintRectangle: " + paitedRectangle);
+        // Need to activate RectangleView with it
+        rectangleView.activateWith(paitedRectangle);
+        annotationsEditor.startWithFreshBox(paitedRectangle);
+    }
+
+    @Override
+    public List<BoundingRect> fetchSavedRectanglesToDraw() {
+        List<BoundingRect> scaledList = new ArrayList<>();
+        if (latestScreenRect != null){
+            for (BoundingRect origRect : annotationsEditor.getAllSavedRectanglesExceptActiveOne()){
+                BoundingRect scaledRect = new BoundingRect(annotationsEditor.getImageWidth(),
+                        annotationsEditor.getImageHeight());
+                scaledRect.setBoxClass(origRect.getBoxClass());
+                scaledRect.setRect(scaleAndTranslateOrigCoordinates(origRect.getRect()));
+                scaledList.add(scaledRect);
+            }
+        }
+        return scaledList;
+    }
+
+    @Override
+    public boolean highlightBoundingRectangle(Point point) {
+        // transform Point's coordinates as per original image
+        Log.d(TAG, "highlightBoundingRectangle, longPressed point = " + point);
+        Point origPoint = convertToOriginalCoordinates(point);
+        Log.d(TAG, "highlightBoundingRectangle, longPressed orig image point = " + origPoint);
+        BoundingRect rect = annotationsEditor.checkAndStartEditAtPosition(origPoint.x, origPoint.y);
+        if (rect != null){
+            // There is a rectangle bounding the point
+            rectangleView.activateWith(scaleAndTranslateOrigCoordinates(rect.getRect()));
+            drawbleView.refresh();
             return true;
         }
         return false;
     }
 
-
-    public String convertArrayToString(ArrayList<RectF> rect){
-        String output="";
-        for(int i=0;i<=rect.size()-1;i++){
-            output += rect.get(i).left + ", " + rect.get(i).bottom + ", "+ rect.get(i).right + ", "+ rect.get(i).top + "\n";
-        }
-        return output;
+    private RectF scaleAndTranslateOrigCoordinates(RectF rectF){
+        float imageWidth = annotationsEditor.getImageWidth();
+        float imageHeight = annotationsEditor.getImageHeight();
+        float left = latestScreenRect.left + ((rectF.left * (latestScreenRect.right - latestScreenRect.left)) / imageWidth);
+        float top = latestScreenRect.top + ((rectF.top * (latestScreenRect.bottom - latestScreenRect.top)) / imageHeight);
+        float right = latestScreenRect.left + ((rectF.right * (latestScreenRect.right - latestScreenRect.left)) / imageWidth);
+        float bottom = latestScreenRect.top + ((rectF.bottom * (latestScreenRect.bottom - latestScreenRect.top)) / imageHeight);
+        return new RectF(left, top, right, bottom);
     }
 
-    public void createTextFile(Context context, String sBody) {
-        int idx = selectedImagePath.lastIndexOf('/');
-        String imageName = selectedImagePath.substring(idx +1, selectedImagePath.length()-4) + ".txt";
-        try {
-            File root = new File(Environment.getExternalStorageDirectory(), "SilverSparroText");
-            if (!root.exists()) {
-                root.mkdirs();
-            }
-            File gpxfile = new File(root, imageName);
-            FileWriter writer = new FileWriter(gpxfile);
-            writer.append(sBody);
-            writer.flush();
-            writer.close();
-            Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private Point convertToOriginalCoordinates(Point point){
+        float imageWidth = annotationsEditor.getImageWidth();
+        float imageHeight = annotationsEditor.getImageHeight();
+        int origX = Math.round(imageWidth * ( (point.x - latestScreenRect.left) / (latestScreenRect.right - latestScreenRect.left) ));
+        int origY = Math.round(imageHeight * ( (point.y - latestScreenRect.top) / (latestScreenRect.bottom - latestScreenRect.top) ));
+        return new Point( origX, origY);
     }
 
+    private RectF convertToOriginalCoordinates(RectF rectF){
+        float imageWidth = annotationsEditor.getImageWidth();
+        float imageHeight = annotationsEditor.getImageHeight();
+        float origLeft = imageWidth * ( (rectF.left - latestScreenRect.left) / (latestScreenRect.right - latestScreenRect.left) );
+        float origTop = imageHeight * ( (rectF.top - latestScreenRect.top) / (latestScreenRect.bottom - latestScreenRect.top) );
+        float origRight = imageWidth * ( (rectF.right - latestScreenRect.left) / (latestScreenRect.right - latestScreenRect.left) );
+        float origBottom = imageHeight * ( (rectF.bottom - latestScreenRect.top) / (latestScreenRect.bottom - latestScreenRect.top) );
+        return new RectF(origLeft, origTop, origRight, origBottom);
+    }
 
-    public void readFromText(){
-        int idx = selectedImagePath.lastIndexOf('/');
-        String imageName = selectedImagePath.substring(idx +1, selectedImagePath.length()-4) + "txt";
-        try {
-            File file = new File(imageName);
-            FileReader fileReader = new FileReader(file);
-            BufferedReader bufferedReader = new BufferedReader(fileReader);
-            StringBuffer stringBuffer = new StringBuffer();
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                stringBuffer.append(line);
-                stringBuffer.append("\n");
-            }
-            fileReader.close();
-            Log.d(TAG, "Contents of file: " + stringBuffer.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    /**
+     * Callback from ResizableRectangleView, called when a long press is detected inside the active rectangle
+     * @param rectF
+     */
+    @Override
+    public void onSaveRect(RectF rectF) {
+       saveActiveRectangle();
     }
 
 //[RectF(376.90726, 850.0, 721.0, 584.2018), RectF(269.56836, 1068.0, 565.0, 817.0), RectF(374.70007, 1310.0, 680.0, 1050.0)]

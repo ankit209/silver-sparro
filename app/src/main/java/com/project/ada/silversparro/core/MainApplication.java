@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.util.Log;
 
+import com.project.ada.silversparro.utils.SharedPrefsManager;
+
 import static com.project.ada.silversparro.Constants.PREF_APP_VERSION;
 
 /**

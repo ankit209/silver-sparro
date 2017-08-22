@@ -3,12 +3,12 @@ package com.project.ada.silversparro;
 import android.graphics.Point;
 import android.graphics.RectF;
 import android.text.TextUtils;
+import android.util.Log;
 
-import com.project.ada.silversparro.core.SharedPrefsManager;
-import com.project.ada.silversparro.core.Utils;
 import com.project.ada.silversparro.data.Annotation;
-import com.project.ada.silversparro.data.BoundingBox;
+import com.project.ada.silversparro.data.BoundingRect;
 import com.project.ada.silversparro.data.Box;
+import com.project.ada.silversparro.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,20 +45,21 @@ public class AnnotationsEditor {
         return activeIndex != IDLE;
     }
 
+
     /**
      * Initiates editing for a new box, sets state accordingly
      * Sets state for editing fresh box,
      * @param inputRect
-     * @return fresh BoundingBox to be edited
+     * @return fresh BoundingRect to be edited
      */
-    public BoundingBox startWithFreshBox(RectF inputRect){
+    public BoundingRect startWithFreshBox(RectF inputRect){
 
         if (isEditing()){
             throw new IllegalStateException("Editing already in progress for index " + activeIndex);
         }
         activeIndex = FRESH_BOX;
-        BoundingBox freshBox = new BoundingBox(getImageWidth(), getImageHeight());
-        freshBox.setBoxRect(inputRect);
+        BoundingRect freshBox = new BoundingRect(getImageWidth(), getImageHeight());
+        freshBox.setRect(inputRect);
         return freshBox;
 
     }
@@ -68,9 +69,9 @@ public class AnnotationsEditor {
      * change the state to Editing setting the activeIndex as the index of the box in the list
      * @param touchX
      * @param touchY
-     * @return
+     * @return Saved Rectangle bounding the point which just got activated (highlighted), NULL if there is no rectangle bounding the point
      */
-    public BoundingBox checkAndStartEditAtPosition(float touchX, float touchY){
+    public BoundingRect checkAndStartEditAtPosition(float touchX, float touchY){
         if (isEditing()){
             throw new IllegalStateException("Editing already in progress for index " + activeIndex);
         }
@@ -78,9 +79,28 @@ public class AnnotationsEditor {
         if (ind >= 0){
             // A box is present at the specified position, can start editing it
             activeIndex = ind;
-            return getBoundingBoxAtIndex(ind);
+            return getSavedRectAtIndex(ind);
         }
         return null;
+    }
+
+    /**
+     * Removes the box at current active index from list of boxes and then persist Annotation
+     * Sets state to IDLE.
+     */
+    public void deleteActiveBox(){
+        if (!isEditing()){
+            Log.d(TAG, "Can't find active box to delete, will do nothing");
+            return;
+        }
+        if (activeIndex > -1){
+            // Some saved box is currently being edited, need to remove it
+            synchronized (AnnotationsEditor.class){
+                annotation.getBoxes().remove(activeIndex);
+                Utils.persistAnnotation(annotation);
+            }
+        }
+        discardEditing();
     }
 
     /**
@@ -90,53 +110,88 @@ public class AnnotationsEditor {
         activeIndex = IDLE;
     }
 
-
     /**
      * Saves bounding box at activeIndex if active Index is FRESH_BOX then it adds the new box to the list
      * Changes state to IDLE
      * Persists the newly edited Annotation object
-     * @param boundingBox
+     * @param boundingRect
      */
-    public void saveBoundingBox(BoundingBox boundingBox){
+    public void saveBoundingRect(BoundingRect boundingRect){
 
-        if (TextUtils.isEmpty(boundingBox.getBoxClass())){
+        if (!isEditing()){
+            throw new IllegalStateException("A box can only be saved in Editing state");
+        }
+
+        if (TextUtils.isEmpty(boundingRect.getBoxClass())){
             throw new IllegalStateException("Please enter Box Class");
         }
 
         Box annotaionBox;
         if (activeIndex == FRESH_BOX){
             annotaionBox = new Box();
-            annotaionBox.setBoxClass(boundingBox.getBoxClass());
-            annotaionBox.setPoints(generatePointsArray(boundingBox.getBoxRect()));
+            annotaionBox.setBoxClass(boundingRect.getBoxClass());
+            annotaionBox.setPoints(generatePointsArray(boundingRect.getRect()));
             annotation.getBoxes().add(annotaionBox);
         }else {
             annotaionBox = annotation.getBoxes().get(activeIndex);
-            annotaionBox.setBoxClass(boundingBox.getBoxClass());
-            annotaionBox.setPoints(generatePointsArray(boundingBox.getBoxRect()));
+            annotaionBox.setBoxClass(boundingRect.getBoxClass());
+            annotaionBox.setPoints(generatePointsArray(boundingRect.getRect()));
         }
-        activeIndex = IDLE;
-        String key = Constants.PREFS_ANNOTATION_PREFIX + annotation.getImageUrl();
-        SharedPrefsManager.getInstance().setString(key, Utils.createJSONStringFromObject(annotation));
-
+        discardEditing();
+        Utils.persistAnnotation(annotation);
     }
 
     public int getIndexOfBoxAt(final float touchX, final float touchY){
-
-        for (int i=0; i<annotation.getBoxes().size(); i++){
-            if (isTouchInsideBox(touchX, touchY, annotation.getBoxes().get(i))){
-                return i;
+        synchronized (AnnotationsEditor.class){
+            for (int i=0; i<annotation.getBoxes().size(); i++){
+                if (isTouchInsideBox(touchX, touchY, annotation.getBoxes().get(i))){
+                    return i;
+                }
             }
+            return IDLE;
         }
-        return IDLE;
-
     }
 
-    public BoundingBox getBoundingBoxAtIndex(int index){
+    public BoundingRect getSavedRectAtIndex(int index){
         Box annoBox = annotation.getBoxes().get(index);
-        BoundingBox boundingBox = new BoundingBox(getImageWidth(), getImageHeight());
-        boundingBox.setBoxClass(annoBox.getBoxClass());
-        boundingBox.setBoxRect(generateRectFromPointsArray(annoBox.getPoints()));
-        return boundingBox;
+        return convertBoxToRect(annoBox);
+    }
+
+    /**
+     * Gets the list of all bounding rectangles which are saved for this annotation
+     * @return
+     */
+    public List<BoundingRect> getAllSavedRectangles(){
+        List<BoundingRect> list = new ArrayList<>();
+        for (Box annoBox : annotation.getBoxes()){
+            list.add(convertBoxToRect(annoBox));
+        }
+        return list;
+    }
+
+    /**
+     * Gets the list of all bounding rectangles which are saved for this annotation
+     * @return
+     */
+    public List<BoundingRect> getAllSavedRectanglesExceptActiveOne(){
+        List<BoundingRect> list = new ArrayList<>();
+        for (int i=0; i < annotation.getBoxes().size(); i++){
+            if (i != activeIndex){
+                list.add(convertBoxToRect(annotation.getBoxes().get(i)));
+            }
+        }
+        return list;
+    }
+
+    public String getImageUrl(){
+        return annotation.getImageUrl();
+    }
+
+    private BoundingRect convertBoxToRect(Box annoBox){
+        BoundingRect boundingRect = new BoundingRect(getImageWidth(), getImageHeight());
+        boundingRect.setBoxClass(annoBox.getBoxClass());
+        boundingRect.setRect(generateRectFromPointsArray(annoBox.getPoints()));
+        return boundingRect;
     }
 
     private static boolean isTouchInsideBox(float touchX, float touchY, Box box){

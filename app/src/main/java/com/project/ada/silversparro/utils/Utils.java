@@ -1,10 +1,11 @@
-package com.project.ada.silversparro.core;
+package com.project.ada.silversparro.utils;
 
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
@@ -13,6 +14,7 @@ import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -21,6 +23,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.project.ada.silversparro.Constants;
+import com.project.ada.silversparro.core.MainApplication;
+import com.project.ada.silversparro.data.Annotation;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -30,11 +34,15 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
+import static com.project.ada.silversparro.Constants.IMAGE_NAME_PREFIX;
+import static com.project.ada.silversparro.Constants.IMAGE_NAME_SUFFIX;
 
 /**
  * Created by ankitmaheshwari on 8/15/17.
@@ -266,7 +274,8 @@ public class Utils {
     public static Uri getLocalBitmapUri(Bitmap bmp, Context context) {
         Uri bmpUri = null;
         try {
-            File file = new File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "share_image_" + new Date().getTime() + ".png");
+            File file = new File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                    IMAGE_NAME_PREFIX + new Date().getTime() + IMAGE_NAME_SUFFIX);
             FileOutputStream out = new FileOutputStream(file);
             bmp.compress(Bitmap.CompressFormat.PNG, 90, out);
             out.close();
@@ -425,6 +434,54 @@ public class Utils {
         } else {
             return Character.toUpperCase(first) + s.substring(1);
         }
+    }
+
+    public static Annotation createDummyAnnotation(Bitmap bitmap){
+        Annotation annotation = new Annotation();
+        String url = getLocalBitmapUri(bitmap, MainApplication.getContext()).toString();
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        List<String> classes = new ArrayList<String>(){{
+            add("dummy_1");
+            add("dummy_2");
+            add("dummy_3");
+        }};
+
+        annotation.setImageUrl(url);
+        annotation.setBoxClasses(classes);
+        annotation.setDataSet("Dummy Dataset");
+        annotation.setImageWidth(width);
+        annotation.setImageHeight(height);
+
+        return annotation;
+    }
+
+    public static void persistAnnotation(Annotation annotation){
+        String key = Constants.PREFS_ANNOTATION_PREFIX + annotation.getImageUrl();
+        Log.d(TAG, "Persisting Annotation at key = " + key
+                + ", annotation = " + Utils.createJSONStringFromObject(annotation));
+        SharedPrefsManager.getInstance().setString(key, Utils.createJSONStringFromObject(annotation));
+    }
+
+    public static Annotation getPersistedAnnotation(String imgUrl){
+        String key = Constants.PREFS_ANNOTATION_PREFIX + imgUrl;
+        return SharedPrefsManager.getInstance().getObject(key, Annotation.class);
+    }
+
+    public static Bitmap drawableToBitmap (Drawable drawable) {
+
+        if (drawable instanceof BitmapDrawable) {
+            return ((BitmapDrawable)drawable).getBitmap();
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(),
+                Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+
+        return bitmap;
     }
 
 }
