@@ -5,6 +5,8 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Point;
+import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -14,7 +16,6 @@ import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -457,18 +458,6 @@ public class Utils {
         return annotation;
     }
 
-    public static void persistAnnotation(Annotation annotation){
-        String key = Constants.PREFS_ANNOTATION_PREFIX + annotation.getImageUrl();
-        Log.d(TAG, "Persisting Annotation at key = " + key
-                + ", annotation = " + Utils.createJSONStringFromObject(annotation));
-        SharedPrefsManager.getInstance().setString(key, Utils.createJSONStringFromObject(annotation));
-    }
-
-    public static Annotation getPersistedAnnotation(String imgUrl){
-        String key = Constants.PREFS_ANNOTATION_PREFIX + imgUrl;
-        return SharedPrefsManager.getInstance().getObject(key, Annotation.class);
-    }
-
     public static Bitmap drawableToBitmap (Drawable drawable) {
 
         if (drawable instanceof BitmapDrawable) {
@@ -482,6 +471,60 @@ public class Utils {
         drawable.draw(canvas);
 
         return bitmap;
+    }
+
+    public static RectF convertPointsArrayToRectF(Point[] points){
+        if (points.length != 4){
+            throw new IllegalArgumentException("Input array of points should be of length four");
+        }
+        float right = 0;
+        float bottom = 0;
+        float left = Float.MAX_VALUE;
+        float top = Float.MAX_VALUE;
+
+        for (int i=0; i<points.length; i++){
+            Point p = points[i];
+            if (p.x <= left){
+                left = p.x;
+            }
+            if (p.y <= top){
+                top = p.y;
+            }
+            if (p.x >= right){
+                right = p.x;
+            }
+            if (p.y >= bottom){
+                bottom = p.y;
+            }
+        }
+        return new RectF(left, top, right, bottom);
+    }
+
+    public static RectF convertPointsListToRectF(List<Point> points){
+        if (points.size() != 4){
+            throw new IllegalArgumentException("Input list of points should be of size four");
+        }
+        float right = 0;
+        float bottom = 0;
+        float left = Float.MAX_VALUE;
+        float top = Float.MAX_VALUE;
+
+        for (int i=0; i<points.size(); i++){
+            Point p = points.get(i);
+            if (p.x <= left){
+                left = p.x;
+            }
+            if (p.y <= top){
+                top = p.y;
+            }
+            if (p.x >= right){
+                right = p.x;
+            }
+            if (p.y >= bottom){
+                bottom = p.y;
+            }
+        }
+        return new RectF(left, top, right, bottom);
     }
 
 }

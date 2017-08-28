@@ -2,6 +2,7 @@ package com.project.ada.silversparro.views;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
@@ -22,6 +23,7 @@ import java.util.List;
 
 import static com.project.ada.silversparro.Constants.PAINT_STROKE_WIDTH;
 import static com.project.ada.silversparro.Constants.RECT_LINE_STROKE_WIDTH;
+import static com.project.ada.silversparro.Constants.TEXT_SIZE_IN_DP;
 
 /**
  * Created by ada on 23/6/17.
@@ -37,12 +39,15 @@ public class DrawableView extends View {
     private Path drawPath;
     private Paint drawPaint;
     private Paint rectPaint;
+    private Paint textPaint;
     private int paintColor = R.color.colorPrimaryDark;
     float left = Float.MAX_VALUE;
     float top = Float.MAX_VALUE;
     float right = 0;
     float bottom = 0;
 
+    float origTextSizeInPx = Utils.convertDpToPixel(getContext(), TEXT_SIZE_IN_DP);
+    float origSavedRectStrokeWidthInPx = Utils.convertDpToPixel(getContext(), RECT_LINE_STROKE_WIDTH);
 
     Listener listener;
 
@@ -94,10 +99,17 @@ public class DrawableView extends View {
         rectPaint.setStyle(Paint.Style.STROKE);
         rectPaint.setStrokeWidth(Utils.convertDpToPixel(getContext(), RECT_LINE_STROKE_WIDTH));
 
+        textPaint = new Paint();
+        textPaint.setColor(Color.GREEN);
+
     }
 
     public void setDrawingEnabled(boolean isEditable){
         this.isEditable = isEditable;
+    }
+
+    public boolean isDrawingEnabled(){
+        return isEditable;
     }
 
     @Override
@@ -108,8 +120,19 @@ public class DrawableView extends View {
         }
         if (listener != null){
             for (BoundingRect rect : listener.fetchSavedRectanglesToDraw()){
+                // Draw rectangle
+                float strokeWidth = listener.getScale() * origSavedRectStrokeWidthInPx;
+                rectPaint.setStrokeWidth(strokeWidth);
                 canvas.drawRect(rect.getRect(), rectPaint);
+
+                // Draw label
+                float scaledTextSize = listener.getScale() * origTextSizeInPx;
+                textPaint.setTextSize(scaledTextSize);
+                float labelWidth = textPaint.measureText(rect.getBoxClass());
+                canvas.drawText(rect.getBoxClass(), rect.getRect().right - labelWidth + strokeWidth,
+                        rect.getRect().top - strokeWidth, textPaint);
             }
+
         }
     }
 
@@ -207,7 +230,7 @@ public class DrawableView extends View {
     public interface Listener{
 
         /**
-         * Draws the bounding rectangle immediatelt after user finishes stroking by taking his/her finger up
+         * Draws the bounding rectangle immediately after user finishes stroking by taking his/her finger up
          * @param paitedRectangle
          */
         void onPaintRectangle(RectF paitedRectangle);
@@ -217,6 +240,12 @@ public class DrawableView extends View {
          * @return
          */
         List<BoundingRect> fetchSavedRectanglesToDraw();
+
+        /**
+         * Fetched current scale of the image
+         * @return
+         */
+        float getScale();
 
         /**
          * It the input point lies inside a saved rectangle, it will get highlighted i.e. edit mode will be activated

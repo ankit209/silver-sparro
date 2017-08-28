@@ -16,30 +16,62 @@
         android:textSize="18sp"/>
 
     <FrameLayout
-        android:id="@+id/main_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <com.github.chrisbanes.photoview.PhotoView
-            android:id="@+id/zoom_iv"
+        <FrameLayout
+            android:id="@+id/main_container"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:src="@drawable/image3"/>
+            android:layout_height="match_parent">
 
-        <com.project.ada.silversparro.views.DrawableView
-            android:id="@+id/drawble_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_alignBottom="@id/zoom_iv"
-            android:layout_alignTop="@id/zoom_iv"
-            android:hapticFeedbackEnabled="true"/>
+            <com.github.chrisbanes.photoview.PhotoView
+                android:id="@+id/zoom_iv"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/image3"/>
 
-        <com.project.ada.silversparro.views.ResizableRectangleView
-            android:id="@+id/rectangle_view"
+            <com.project.ada.silversparro.views.DrawableView
+                android:id="@+id/drawble_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_alignBottom="@id/zoom_iv"
+                android:layout_alignTop="@id/zoom_iv"
+                android:hapticFeedbackEnabled="true"/>
+
+            <com.project.ada.silversparro.views.ResizableRectangleView
+                android:id="@+id/rectangle_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:hapticFeedbackEnabled="true"
+                android:visibility="gone"/>
+
+        </FrameLayout>
+
+        <RelativeLayout
+            android:id="@+id/container_retry"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:hapticFeedbackEnabled="true"
+            android:background="@color/grey_disable"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/bt_retry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="@string/retry"
+                android:textSize="18sp"
+                android:textColor="@color/black_50"
+                android:padding="10dp"/>
+
+        </RelativeLayout>
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
             android:visibility="gone"/>
 
     </FrameLayout>

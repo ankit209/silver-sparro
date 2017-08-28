@@ -11,6 +11,7 @@ import java.util.List;
 
 public class Annotation {
 
+    @SerializedName("dataset")
     private String dataSet;
 
     @SerializedName("classes")

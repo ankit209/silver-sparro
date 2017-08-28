@@ -5,6 +5,8 @@ import android.graphics.RectF;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.project.ada.silversparro.core.Persistence;
+import com.project.ada.silversparro.core.SyncHelper;
 import com.project.ada.silversparro.data.Annotation;
 import com.project.ada.silversparro.data.BoundingRect;
 import com.project.ada.silversparro.data.Box;
@@ -45,6 +47,9 @@ public class AnnotationsEditor {
         return activeIndex != IDLE;
     }
 
+    public List<String> getBoxClasses(){
+        return annotation.getBoxClasses();
+    }
 
     /**
      * Initiates editing for a new box, sets state accordingly
@@ -97,7 +102,7 @@ public class AnnotationsEditor {
             // Some saved box is currently being edited, need to remove it
             synchronized (AnnotationsEditor.class){
                 annotation.getBoxes().remove(activeIndex);
-                Utils.persistAnnotation(annotation);
+                Persistence.persistAnnotation(annotation);
             }
         }
         discardEditing();
@@ -138,7 +143,18 @@ public class AnnotationsEditor {
             annotaionBox.setPoints(generatePointsArray(boundingRect.getRect()));
         }
         discardEditing();
-        Utils.persistAnnotation(annotation);
+        Persistence.persistAnnotation(annotation);
+    }
+
+    /**
+     * Triggers background task to upload current Annotation it to server and then remove it from persistence
+     */
+    public void uploadAndFinish(){
+        Log.d(TAG, "uploadAndFinish, will upload Annotation");
+        SyncHelper.uploadAnnotation(annotation);
+        Persistence.removePersistedAnnotation(annotation.getImageUrl());
+        Persistence.setImgUrlUnderProgress(null);
+        activeIndex = IDLE;
     }
 
     public int getIndexOfBoxAt(final float touchX, final float touchY){
@@ -203,8 +219,7 @@ public class AnnotationsEditor {
         if (points == null || points.isEmpty() || points.size() != 4){
             throw new IllegalStateException("InputList should be of size 4");
         }
-        return new RectF(points.get(0).x, points.get(0).y, points.get(3).x,
-                points.get(3).y);
+        return Utils.convertPointsListToRectF(points);
     }
 
     /**

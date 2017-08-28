@@ -5,6 +5,10 @@
     <color name="colorAccent">#FF4081</color>
     <color name="grey">#9e9e9e</color>
     <color name="black">#000000</color>
+    <color name="white">#ffffff</color>
+    <color name="off_white">#fafafa</color>
+    <color name="grey_disable">#C5C5BE</color>
     <color name="red">#ff0000</color>
+    <color name="black_50">#7f000000</color>
 
 </resources>

@@ -4,4 +4,7 @@
     <string name="unlock">Unlock</string>
     <string name="lock">Lock</string>
     <string name="save_and_next">Save and Next</string>
+    <string name="network_error">Network Error</string>
+    <string name="retry">RETRY</string>
+
 </resources>

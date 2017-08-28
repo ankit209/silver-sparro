@@ -17,6 +17,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import com.project.ada.silversparro.R;
+import com.project.ada.silversparro.utils.Utils;
 
 import java.util.ArrayList;
 
@@ -72,19 +73,22 @@ public class ResizableRectangleView extends View {
     // the method that draws the balls
     @Override
     protected void onDraw(Canvas canvas) {
-        if(points[3]==null) //point4 null when user did not touch and move on screen.
+        if (points.length != 4){
             return;
-        int left, top, right, bottom;
-        left = points[0].x;
-        top = points[0].y;
-        right = points[0].x;
-        bottom = points[0].y;
-        for (int i = 1; i < points.length; i++) {
-            left = left > points[i].x ? points[i].x:left;
-            top = top > points[i].y ? points[i].y:top;
-            right = right < points[i].x ? points[i].x:right;
-            bottom = bottom < points[i].y ? points[i].y:bottom;
         }
+//        if(points[3]==null) //point4 null when user did not touch and move on screen.
+//            return;
+//        int left, top, right, bottom;
+//        left = points[0].x;
+//        top = points[0].y;
+//        right = points[0].x;
+//        bottom = points[0].y;
+//        for (int i = 1; i < points.length; i++) {
+//            left = left > points[i].x ? points[i].x:left;
+//            top = top > points[i].y ? points[i].y:top;
+//            right = right < points[i].x ? points[i].x:right;
+//            bottom = bottom < points[i].y ? points[i].y:bottom;
+//        }
         paint.setAntiAlias(true);
         paint.setDither(true);
         paint.setStrokeJoin(Paint.Join.ROUND);
@@ -95,12 +99,12 @@ public class ResizableRectangleView extends View {
         paint.setColor(Color.parseColor("#AADB1255"));
         paint.setStrokeWidth(2);
 
-        canvas.drawRect(left , top , right , bottom, paint);
+        canvas.drawRect(getCurrentRectF(), paint);
         //fill the rectangle
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(Color.parseColor("#55DB1255"));
         paint.setStrokeWidth(0);
-        canvas.drawRect(left , top , right , bottom , paint);
+        canvas.drawRect(getCurrentRectF() , paint);
 
         // draw the balls on the canvas
         paint.setColor(Color.BLUE);
@@ -252,27 +256,7 @@ public class ResizableRectangleView extends View {
     }
 
     public RectF getCurrentRectF(){
-        float right = 0;
-        float bottom = 0;
-        float left = Float.MAX_VALUE;
-        float top = Float.MAX_VALUE;
-
-        for (int i=0; i<points.length; i++){
-            Point p = points[i];
-            if (p.x <= left){
-                left = p.x;
-            }
-            if (p.y <= top){
-                top = p.y;
-            }
-            if (p.x >= right){
-                right = p.x;
-            }
-            if (p.y >= bottom){
-                bottom = p.y;
-            }
-        }
-        return new RectF(left, top, right, bottom);
+        return Utils.convertPointsArrayToRectF(points);
     }
 
     public static class ColorBall {

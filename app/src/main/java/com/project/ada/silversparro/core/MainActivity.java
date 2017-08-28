@@ -5,24 +5,33 @@ import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.graphics.RectF;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 
 import com.github.chrisbanes.photoview.OnMatrixChangedListener;
 import com.github.chrisbanes.photoview.PhotoView;
+import com.google.gson.Gson;
 import com.project.ada.silversparro.AnnotationsEditor;
+import com.project.ada.silversparro.Constants;
 import com.project.ada.silversparro.R;
 import com.project.ada.silversparro.data.Annotation;
 import com.project.ada.silversparro.data.BoundingRect;
-import com.project.ada.silversparro.utils.SharedPrefsManager;
+import com.project.ada.silversparro.utils.NetworkAsyncCallback;
+import com.project.ada.silversparro.utils.NetworkDataProvider;
+import com.project.ada.silversparro.utils.NetworkException;
 import com.project.ada.silversparro.utils.SilverImageLoader;
 import com.project.ada.silversparro.utils.Utils;
 import com.project.ada.silversparro.views.DrawableView;
@@ -31,11 +40,12 @@ import com.project.ada.silversparro.views.ResizableRectangleView;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.project.ada.silversparro.Constants.PREFS_IMAGE_URL_UNDER_PROGRESS;
+import static com.project.ada.silversparro.core.MainApplication.getContext;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-public class MainActivity extends Activity implements View.OnClickListener, OnMatrixChangedListener, DrawableView.Listener,
-        ResizableRectangleView.SaveListener {
+public class MainActivity extends Activity implements
+        View.OnClickListener, OnMatrixChangedListener, DrawableView.Listener,
+        ResizableRectangleView.SaveListener, ClassSelectionAdapter.ItemClickListener {
 
     private static final String TAG = "SilverSparroActivity";
 
@@ -55,13 +65,15 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
      */
     private ResizableRectangleView rectangleView;
 
-    private View mainContainer;
-
     private AnnotationsEditor annotationsEditor;
 
     private Button deleteButton;
     private Button unlockZoomButton;
     private Button saveAndNextButton;
+    private FrameLayout mainContainer;
+    private ProgressBar mProgressBar;
+    private Button retryButton;
+    private RelativeLayout retryContainer;
 
     private DrawState drawState;
 
@@ -73,12 +85,13 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //TODO:if the corresponding text file exists, display the saved boxes
-
         drawbleView = (DrawableView) findViewById(R.id.drawble_view);
         zoomPanView = (PhotoView) findViewById(R.id.zoom_iv);
         rectangleView = (ResizableRectangleView) findViewById(R.id.rectangle_view);
-        mainContainer = (View) findViewById(R.id.main_container);
+        mainContainer = (FrameLayout) findViewById(R.id.main_container);
+        mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
+        retryContainer = (RelativeLayout) findViewById(R.id.container_retry);
+        retryButton = (Button) findViewById(R.id.bt_retry);
 
         /*
         * gives the relative coordinates of the image with respect to the current view
@@ -102,24 +115,59 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
     }
 
     private void load(){
-        String imgUrlUnderProgress = SharedPrefsManager.getInstance().getString(PREFS_IMAGE_URL_UNDER_PROGRESS);
+        String imgUrlUnderProgress = Persistence.getImgUrlUnderProgress();
         if (TextUtils.isEmpty(imgUrlUnderProgress)){
-            // TODO: Need to download next image, this is just a temporary hack
             // Need to download annotation data
-            Drawable drawable = ContextCompat.getDrawable(this, R.drawable.image2);
-            Annotation annotation = Utils.createDummyAnnotation(Utils.drawableToBitmap(drawable));
-            annotationsEditor = new AnnotationsEditor(annotation);
-            //Setting this image as the current image for which annotations are getting created
-            SharedPrefsManager.getInstance().setString(PREFS_IMAGE_URL_UNDER_PROGRESS,
-                    annotation.getImageUrl());
-            Utils.persistAnnotation(annotation);
+            showProgressDialog();
+            NetworkDataProvider.doGetCallAsync(Constants.BASE_URL + "/" + Persistence.getDataSetName(),
+                    new NetworkAsyncCallback<Annotation>() {
+
+                @Override
+                public void onNetworkFailure(NetworkException ne) {
+                    hideProgressDialog(false);
+                    MainApplication.showToast(R.string.network_error);
+                    Log.d(TAG, "Unable to fetch annotation: " + ne);
+                    ne.printStackTrace();
+                }
+
+                @Override
+                public void onNetworkSuccess(Annotation annotation) {
+                    Gson gson = new Gson();
+                    Log.d(TAG, "Successfully fetched Annotation data " + gson.toJson(annotation));
+                    annotationsEditor = new AnnotationsEditor(annotation);
+                    Persistence.persistAnnotation(annotation);
+                    Persistence.setImgUrlUnderProgress(annotation.getImageUrl());
+                    hideProgressDialog(true);
+                    SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
+                }
+            });
 
         }else {
             Log.d(TAG, "load, fetching persisted annotation at URL: " + imgUrlUnderProgress);
-            Annotation annotation = Utils.getPersistedAnnotation(imgUrlUnderProgress);
+            Annotation annotation = Persistence.getPersistedAnnotation(imgUrlUnderProgress);
+            Gson gson = new Gson();
+            Log.d(TAG, "Loading persisted Annotation: " + gson.toJson(annotation));
             annotationsEditor = new AnnotationsEditor(annotation);
+            SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
         }
-        SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
+
+    }
+
+    protected void showProgressDialog() {
+        mProgressBar.setVisibility(View.VISIBLE);
+        retryContainer.setVisibility(View.GONE);
+        mainContainer.setVisibility(View.INVISIBLE);
+    }
+
+    protected void hideProgressDialog(boolean imageLoadSuccess) {
+        mProgressBar.setVisibility(View.GONE);
+        if (imageLoadSuccess){
+            retryContainer.setVisibility(View.GONE);
+            mainContainer.setVisibility(View.VISIBLE);
+        }else {
+            retryContainer.setVisibility(View.VISIBLE);
+            mainContainer.setVisibility(View.INVISIBLE);
+        }
     }
 
 
@@ -162,8 +210,14 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
                 break;
             
             case R.id.bt_save_and_next:
-                // Save all the completed rectangles in Annotations Editor and move to the next rectangle
+                // Uploads the Annotation for current image and move to the next image
+                annotationsEditor.uploadAndFinish();
+                load();
+                break;
 
+            case R.id.bt_retry:
+                // Retry load
+                load();
                 break;
 
             default:
@@ -179,6 +233,14 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
         annotationsEditor.deleteActiveBox();
         rectangleView.deactivate();
         drawbleView.setDrawingEnabled(false);
+        if (classSelectionRecyclerView != null && classSelectionRecyclerView.getParent() == mainContainer){
+            mainContainer.post(new Runnable() {
+                @Override
+                public void run() {
+                    mainContainer.removeView(classSelectionRecyclerView);
+                }
+            });
+        }
         unlockZoomButton.setText(getString(R.string.lock));
         setDrawState(DrawState.ZOOM_PAN);
     }
@@ -196,14 +258,50 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
         setDrawState(DrawState.PAINT_STROKE);
     }
 
-    private void saveActiveRectangle(){
+
+    private void saveActiveRectangle(String className){
         Log.d(TAG, "saveActiveRectangle");
         RectF activeRect = rectangleView.getCurrentRectF();
         Log.d(TAG, "Will save activeRectangle: "+ activeRect +" at scale: " + zoomPanView.getScale());
-        BoundingRect boundingRect = createBoundingRect(convertToOriginalCoordinates(activeRect), "dummy_1");
+        BoundingRect boundingRect = createBoundingRect(convertToOriginalCoordinates(activeRect), className);
         annotationsEditor.saveBoundingRect(boundingRect);
         rectangleView.deactivate();
         drawbleView.refresh();
+    }
+
+    RecyclerView classSelectionRecyclerView;
+
+    private void drawClassSelectionView(final RectF activeRectangle){
+        Log.d(TAG, "drawClassSelectionView, activeRectangle = " + activeRectangle);
+
+        classSelectionRecyclerView = (RecyclerView) LayoutInflater.from(this).inflate(R.layout.class_selection_recycler_view, null);
+        LinearLayoutManager layoutManager = new LinearLayoutManager(getContext());
+        classSelectionRecyclerView.setLayoutManager(layoutManager);
+
+        // Set Adapter
+        ClassSelectionAdapter adapter = new ClassSelectionAdapter(annotationsEditor.getBoxClasses(), this);
+        classSelectionRecyclerView.setAdapter(adapter);
+
+
+        int numClasses = annotationsEditor.getBoxClasses().size();
+        int mainContainerHeight = mainContainer.getHeight();
+        int recyclerViewEstimatedHeight = (int) Utils.convertDpToPixel(getApplicationContext(), 32*numClasses);
+        Log.d(TAG, "recyclerView estimated height = " + recyclerViewEstimatedHeight
+                + ", mainContainerHeight = " + mainContainerHeight
+                + ", activeRectangle.top = " + activeRectangle.top);
+
+        FrameLayout.LayoutParams layoutParams =
+                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+        layoutParams.leftMargin = (int)activeRectangle.left;
+        if (activeRectangle.bottom > mainContainerHeight - recyclerViewEstimatedHeight){
+            // RecyclerView is going beyond the views bottom
+            layoutParams.topMargin = (int)activeRectangle.top - recyclerViewEstimatedHeight;
+        }else {
+            layoutParams.topMargin = (int)activeRectangle.bottom;
+        }
+        mainContainer.addView(classSelectionRecyclerView, layoutParams);
+
     }
 
     private BoundingRect createBoundingRect(RectF rectF, String boxClass){
@@ -252,6 +350,10 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
         latestScreenRect = new RectF(rect.left,rect.top,rect.right,rect.bottom);
 
         Log.d(TAG, "onMatrixChanged, rectF = " + rect);
+        if (drawbleView.isDrawingEnabled()){
+            // Drawing was under progress but somehow PhotoView's image matrix got reset, lets discard activeBox, disableDrawing and unlockZoom
+            unlockZoomAndPan();
+        }
         // Update the Saved boxes in DrawableView
         //iteration over only those boxes which are saved.
         drawbleView.refresh();
@@ -280,6 +382,12 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
         }
         return scaledList;
     }
+
+    @Override
+    public float getScale() {
+        return zoomPanView.getScale();
+    }
+
 
     @Override
     public boolean highlightBoundingRectangle(Point point) {
@@ -331,7 +439,15 @@ public class MainActivity extends Activity implements View.OnClickListener, OnMa
      */
     @Override
     public void onSaveRect(RectF rectF) {
-       saveActiveRectangle();
+        drawClassSelectionView(rectF);
+    }
+
+    @Override
+    public void onClassSelected(String className) {
+        // Save the activeRectangle with className, then remove recyclerView from view hierarchy
+        saveActiveRectangle(className);
+        mainContainer.removeView(classSelectionRecyclerView);
+        classSelectionRecyclerView = null;
     }
 
 //[RectF(376.90726, 850.0, 721.0, 584.2018), RectF(269.56836, 1068.0, 565.0, 817.0), RectF(374.70007, 1310.0, 680.0, 1050.0)]
