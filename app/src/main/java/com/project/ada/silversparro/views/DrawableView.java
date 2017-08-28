@@ -153,7 +153,7 @@ public class DrawableView extends View {
                     Log.e(TAG, "onLongPress, x = " + e.getX() + ", y = " + e.getY());
                     // Transform the point to original image's scale and then check if it is inside one of the saved rectangles
                     Point point = new Point(Math.round(e.getX()), Math.round(e.getY()));
-                    if (listener.highlightBoundingRectangle(point)){
+                    if (listener != null && listener.highlightBoundingRectangle(point)){
                         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
                         longPressConsumed = true;
                     }

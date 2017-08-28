@@ -154,6 +154,7 @@ public class AnnotationsEditor {
         SyncHelper.uploadAnnotation(annotation);
         Persistence.removePersistedAnnotation(annotation.getImageUrl());
         Persistence.setImgUrlUnderProgress(null);
+        annotation = null;
         activeIndex = IDLE;
     }
 

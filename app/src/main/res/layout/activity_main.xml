@@ -6,14 +6,34 @@
     tools:context=".core.MainActivity"
     android:orientation="vertical">
 
-    <Button
-        android:id="@+id/bt_delete"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/delete"
-        android:layout_marginLeft="16dp"
-        android:layout_marginRight="16dp"
-        android:textSize="18sp"/>
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/bt_delete"
+            android:layout_width="0dp"
+            android:layout_weight="5"
+            android:layout_height="wrap_content"
+            android:text="@string/delete"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="2dp"
+            android:textSize="14sp"/>
+
+        <Button
+            android:id="@+id/bt_dataset"
+            android:layout_width="0dp"
+            android:layout_weight="2"
+            android:layout_height="wrap_content"
+            android:text="@string/dataset"
+            android:layout_marginLeft="2dp"
+            android:layout_marginRight="16dp"
+            android:textSize="14sp"/>
+
+    </LinearLayout>
+
+
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -28,8 +48,7 @@
             <com.github.chrisbanes.photoview.PhotoView
                 android:id="@+id/zoom_iv"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:src="@drawable/image3"/>
+                android:layout_height="match_parent"/>
 
             <com.project.ada.silversparro.views.DrawableView
                 android:id="@+id/drawble_view"

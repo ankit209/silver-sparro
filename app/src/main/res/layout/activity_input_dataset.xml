@@ -1,6 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-</LinearLayout>
+
+    <android.support.design.widget.TextInputLayout
+        android:id="@+id/input_data_set"
+        android:layout_width="match_parent"
+        android:layout_height="85dp"
+        android:layout_centerInParent="true"
+        android:layout_marginLeft="50dp"
+        android:layout_marginRight="50dp">
+
+        <LinearLayout
+            android:id="@+id/dummy_focus"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:layout_width="0px"
+            android:layout_height="0px"
+            android:orientation="horizontal"/>
+
+        <android.support.v7.widget.AppCompatEditText
+            android:id="@+id/et_dataset"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:gravity="center_horizontal"
+            android:maxLines="3"
+            android:alpha="0.5"
+            android:imeOptions="actionGo"
+            android:textColorHint="@color/black_50"
+            android:textColor="@color/black"
+            android:hint="@string/enter_dataset_name" />
+    </android.support.design.widget.TextInputLayout>
+
+    <Button
+        android:id="@+id/bt_continue"
+        android:layout_width="180dp"
+        android:layout_height="50dp"
+        android:layout_below="@id/input_data_set"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="8dp"
+        android:text="@string/continue_button"
+        android:textSize="14sp"
+        android:textColor="@color/white"
+        android:background="@drawable/pink_button" />
+
+
+</RelativeLayout>

@@ -5,6 +5,18 @@
     <string name="lock">Lock</string>
     <string name="save_and_next">Save and Next</string>
     <string name="network_error">Network Error</string>
+    <string name="cant_load">Cannot load. Maybe dataset is incorrect</string>
     <string name="retry">RETRY</string>
+    <string name="enter_dataset_name">ENTER DATASET NAME</string>
+    <string name="continue_button">CONTINUE</string>
+
+    <string name="please_enter_valid_dataset">Please enter valid dataset name</string>
+    <string name="dataset">Dataset</string>
+
+    <string name="are_you_sure">Are you sure?</string>
+
+    <string name="save_and_next_message">Save boxes for this image and move to next image?</string>
+
+
 
 </resources>

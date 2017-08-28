@@ -2,6 +2,9 @@ package com.project.ada.silversparro.core;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.graphics.RectF;
@@ -49,7 +52,6 @@ public class MainActivity extends Activity implements
 
     private static final String TAG = "SilverSparroActivity";
 
-
     /**
      * Middle layer in Drawing views hierarchy
      * It draws all the saved rectangles on canvas, their position changes when zoomPanView Matrix changes
@@ -70,6 +72,7 @@ public class MainActivity extends Activity implements
     private Button deleteButton;
     private Button unlockZoomButton;
     private Button saveAndNextButton;
+    private Button datasetButton;
     private FrameLayout mainContainer;
     private ProgressBar mProgressBar;
     private Button retryButton;
@@ -83,6 +86,11 @@ public class MainActivity extends Activity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (TextUtils.isEmpty(Persistence.getDataSetName())){
+            // Need to get DataSetName
+            startDatasetActivity();
+            return;
+        }
         setContentView(R.layout.activity_main);
 
         drawbleView = (DrawableView) findViewById(R.id.drawble_view);
@@ -92,12 +100,13 @@ public class MainActivity extends Activity implements
         mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
         retryContainer = (RelativeLayout) findViewById(R.id.container_retry);
         retryButton = (Button) findViewById(R.id.bt_retry);
+        datasetButton = (Button) findViewById(R.id.bt_dataset);
 
         /*
         * gives the relative coordinates of the image with respect to the current view
         */
         zoomPanView.setOnMatrixChangeListener(this);
-        drawbleView.setListener(this);
+//        drawbleView.setListener(this);
         rectangleView.setListener(this);
         drawbleView.setDrawingEnabled(false);
         setDrawState(DrawState.ZOOM_PAN);
@@ -109,9 +118,17 @@ public class MainActivity extends Activity implements
         deleteButton.setOnClickListener(this);
         unlockZoomButton.setOnClickListener(this);
         saveAndNextButton.setOnClickListener(this);
+        retryButton.setOnClickListener(this);
+        datasetButton.setOnClickListener(this);
 
         load();
 
+    }
+
+    private void startDatasetActivity() {
+        Intent intent = new Intent(this, DataSetActivity.class);
+        startActivity(intent);
+        finish();
     }
 
     private void load(){
@@ -119,8 +136,9 @@ public class MainActivity extends Activity implements
         if (TextUtils.isEmpty(imgUrlUnderProgress)){
             // Need to download annotation data
             showProgressDialog();
-            NetworkDataProvider.doGetCallAsync(Constants.BASE_URL + "/" + Persistence.getDataSetName(),
-                    new NetworkAsyncCallback<Annotation>() {
+            String getUrl = Constants.BASE_URL + "/" + Persistence.getDataSetName();
+            Log.d(TAG, "Will fetch AnnotationData at: " + getUrl);
+            NetworkDataProvider.doGetCallAsync(getUrl, new NetworkAsyncCallback<Annotation>() {
 
                 @Override
                 public void onNetworkFailure(NetworkException ne) {
@@ -132,13 +150,20 @@ public class MainActivity extends Activity implements
 
                 @Override
                 public void onNetworkSuccess(Annotation annotation) {
-                    Gson gson = new Gson();
-                    Log.d(TAG, "Successfully fetched Annotation data " + gson.toJson(annotation));
-                    annotationsEditor = new AnnotationsEditor(annotation);
-                    Persistence.persistAnnotation(annotation);
-                    Persistence.setImgUrlUnderProgress(annotation.getImageUrl());
-                    hideProgressDialog(true);
-                    SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
+                    if (TextUtils.isEmpty(annotation.getImageUrl())){
+                        // It is actually a Failure
+                        MainApplication.showToast(R.string.cant_load);
+                        hideProgressDialog(false);
+                    }else {
+                        Gson gson = new Gson();
+                        Log.d(TAG, "Successfully fetched Annotation data " + gson.toJson(annotation));
+                        annotationsEditor = new AnnotationsEditor(annotation);
+                        Persistence.persistAnnotation(annotation);
+                        Persistence.setImgUrlUnderProgress(annotation.getImageUrl());
+                        hideProgressDialog(true);
+                        SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
+                        drawbleView.setListener(MainActivity.this);
+                    }
                 }
             });
 
@@ -149,6 +174,7 @@ public class MainActivity extends Activity implements
             Log.d(TAG, "Loading persisted Annotation: " + gson.toJson(annotation));
             annotationsEditor = new AnnotationsEditor(annotation);
             SilverImageLoader.getInstance().loadImage(annotationsEditor.getImageUrl(), zoomPanView);
+            drawbleView.setListener(this);
         }
 
     }
@@ -185,34 +211,15 @@ public class MainActivity extends Activity implements
         Log.d(TAG, "################# onClick #################");
         switch (id) {
             case R.id.bt_unlock_zoom:
-                Log.d(TAG, "sceenwidth = " + Utils.getScreenWidthUsingDisplayMetrics(this)
-                        + ", screenHeight = " + Utils.getScreenHeightUsingDisplayMetrics(this));
-                Log.d(TAG, "onClick bt_unlock_zoom, Image width = " + annotationsEditor.getImageWidth()
-                        + ", height = " + annotationsEditor.getImageHeight());
-                Log.d(TAG, "onClick bt_unlock_zoom, view width = " + mainContainer.getWidth()
-                        + ", height = " + mainContainer.getHeight());
-                Log.d(TAG, "onClick bt_unlock_zoom, view X = " + mainContainer.getX()
-                        + ", Y = " + mainContainer.getY());
-                Log.d(TAG, "onClick bt_unlock_zoom, lockButton X = " + unlockZoomButton.getX()
-                        + ", Y = " + unlockZoomButton.getY());
-                Log.d(TAG, "onClick bt_unlock_zoom, deleteButton X = " + deleteButton.getX()
-                        + ", Y = " + deleteButton.getY());
-                if (unlockZoomButton.getText().equals(getString(R.string.lock))) {
-                    lockZoomAndStartPaint();
-                } else {
-                    unlockZoomAndPan();
-                }
+                resolveZoomToggle();
                 break;
 
             case R.id.bt_delete:
-                annotationsEditor.deleteActiveBox();
-                rectangleView.deactivate();
+                resolveDelete();
                 break;
             
             case R.id.bt_save_and_next:
-                // Uploads the Annotation for current image and move to the next image
-                annotationsEditor.uploadAndFinish();
-                load();
+                resolveSaveAndNext();
                 break;
 
             case R.id.bt_retry:
@@ -220,8 +227,64 @@ public class MainActivity extends Activity implements
                 load();
                 break;
 
+            case R.id.bt_dataset:
+                // Open DataSetActivity
+                startDatasetActivity();
+                break;
+
             default:
                 break;
+        }
+    }
+
+    private void resolveDelete(){
+        if (annotationsEditor != null){
+            annotationsEditor.deleteActiveBox();
+        }
+        rectangleView.deactivate();
+    }
+
+    AlertDialog saveAndNextDialog;
+
+    private void resolveSaveAndNext(){
+        if (annotationsEditor != null && !isFinishing()){
+            if (saveAndNextDialog == null || !saveAndNextDialog.isShowing()){
+                final AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
+                alertDialog.setTitle(getString(R.string.are_you_sure));
+                alertDialog.setMessage(getString(R.string.save_and_next_message));
+                alertDialog.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Step: discard any unsaved boxes and enable zoom mode
+                        unlockZoomAndPan();
+                        // Uploads the Annotation for current image and remove it from persistent storage
+                        annotationsEditor.uploadAndFinish();
+                        // clear annotationsEditor
+                        annotationsEditor = null;
+                        drawbleView.setListener(null);
+                        drawbleView.refresh();
+                        // Download and display next image
+                        load();
+                    }
+                });
+                alertDialog.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+                saveAndNextDialog = alertDialog.show();
+            }
+        }
+    }
+
+    private void resolveZoomToggle(){
+        if (annotationsEditor == null){
+            // Do nothing
+            return;
+        }
+        if (unlockZoomButton.getText().equals(getString(R.string.lock))) {
+            lockZoomAndStartPaint();
+        } else {
+            unlockZoomAndPan();
         }
     }
 
@@ -230,6 +293,9 @@ public class MainActivity extends Activity implements
      * If there are any unsaved rectangles it discards all of them
      */
     private void unlockZoomAndPan(){
+        if (annotationsEditor == null){
+            return;
+        }
         annotationsEditor.deleteActiveBox();
         rectangleView.deactivate();
         drawbleView.setDrawingEnabled(false);
@@ -251,6 +317,9 @@ public class MainActivity extends Activity implements
      * It also draws the already existing saved rectangles from AnnotationEditor
      */
     private void lockZoomAndStartPaint(){
+        if (annotationsEditor == null){
+            return;
+        }
         drawbleView.setDrawingEnabled(true);
         annotationsEditor.deleteActiveBox();
         rectangleView.deactivate();

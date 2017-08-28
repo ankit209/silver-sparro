@@ -44,7 +44,7 @@ public class Persistence {
     }
 
     public static String getDataSetName(){
-        return SharedPrefsManager.getInstance().getString(PREFS_DATASET_NAME, "ci");
+        return SharedPrefsManager.getInstance().getString(PREFS_DATASET_NAME);
     }
 
     public static void setDataSetName(String dataSetName){
