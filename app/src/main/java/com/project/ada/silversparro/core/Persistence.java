@@ -8,6 +8,7 @@ import com.project.ada.silversparro.utils.SharedPrefsManager;
 import com.project.ada.silversparro.utils.Utils;
 
 import static com.project.ada.silversparro.Constants.PREFS_DATASET_NAME;
+import static com.project.ada.silversparro.Constants.PREFS_DISABLE_RESIZE_BOX;
 import static com.project.ada.silversparro.Constants.PREFS_IMAGE_URL_UNDER_PROGRESS;
 
 /**
@@ -49,6 +50,14 @@ public class Persistence {
 
     public static void setDataSetName(String dataSetName){
         SharedPrefsManager.getInstance().setString(PREFS_DATASET_NAME, dataSetName);
+    }
+
+    public static void setDisableResizeBox(boolean disableResizeBox){
+        SharedPrefsManager.getInstance().setBoolean(PREFS_DISABLE_RESIZE_BOX, disableResizeBox);
+    }
+
+    public static boolean isResizeBoxDisabled(){
+        return SharedPrefsManager.getInstance().getBoolean(PREFS_DISABLE_RESIZE_BOX, false);
     }
 
 

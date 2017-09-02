@@ -27,6 +27,7 @@ public class Constants {
     public static final String STATUS_ERROR = "error";
 
     public static final String PREFS_DATASET_NAME = "prefs_dataset_name";
+    public static final String PREFS_DISABLE_RESIZE_BOX = "prefs_disable_resize_box";
 
 }
 

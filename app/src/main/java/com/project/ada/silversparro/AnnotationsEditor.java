@@ -51,22 +51,26 @@ public class AnnotationsEditor {
         return annotation.getBoxClasses();
     }
 
+    public int getNumClasses(){
+        return getBoxClasses().size();
+    }
+
+    public String getDefaultClassName(){
+        if (getNumClasses() > 0){
+            return getBoxClasses().get(0);
+        }
+        return "";
+    }
+
     /**
      * Initiates editing for a new box, sets state accordingly
      * Sets state for editing fresh box,
-     * @param inputRect
-     * @return fresh BoundingRect to be edited
      */
-    public BoundingRect startWithFreshBox(RectF inputRect){
-
+    public void startWithFreshBox(){
         if (isEditing()){
             throw new IllegalStateException("Editing already in progress for index " + activeIndex);
         }
         activeIndex = FRESH_BOX;
-        BoundingRect freshBox = new BoundingRect(getImageWidth(), getImageHeight());
-        freshBox.setRect(inputRect);
-        return freshBox;
-
     }
 
     /**

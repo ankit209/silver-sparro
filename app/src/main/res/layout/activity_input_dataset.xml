@@ -2,14 +2,14 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:gravity="center">
 
 
     <android.support.design.widget.TextInputLayout
         android:id="@+id/input_data_set"
         android:layout_width="match_parent"
         android:layout_height="85dp"
-        android:layout_centerInParent="true"
         android:layout_marginLeft="50dp"
         android:layout_marginRight="50dp">
 
@@ -35,11 +35,23 @@
             android:hint="@string/enter_dataset_name" />
     </android.support.design.widget.TextInputLayout>
 
+    <CheckBox
+        android:id="@+id/disable_resize_box"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/input_data_set"
+        android:layout_centerHorizontal="true"
+        android:text="@string/disable_box_resizing"
+        android:textSize="18sp"
+        android:textColor="@color/black_50"
+        android:layout_marginBottom="12dp"
+        />
+
     <Button
         android:id="@+id/bt_continue"
         android:layout_width="180dp"
         android:layout_height="50dp"
-        android:layout_below="@id/input_data_set"
+        android:layout_below="@id/disable_resize_box"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="8dp"
         android:text="@string/continue_button"

@@ -12,6 +12,8 @@ import android.widget.Toast;
 import com.crashlytics.android.Crashlytics;
 import com.project.ada.silversparro.utils.SharedPrefsManager;
 
+import io.fabric.sdk.android.Fabric;
+
 import static com.project.ada.silversparro.Constants.PREF_APP_VERSION;
 
 /**

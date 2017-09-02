@@ -11,11 +11,12 @@
     <string name="continue_button">CONTINUE</string>
 
     <string name="please_enter_valid_dataset">Please enter valid dataset name</string>
-    <string name="dataset">Dataset</string>
+    <string name="dataset">Config</string>
 
     <string name="are_you_sure">Are you sure?</string>
 
     <string name="save_and_next_message">Save boxes for this image and move to next image?</string>
+    <string name="disable_box_resizing">Disable box resizing</string>
 
 
 

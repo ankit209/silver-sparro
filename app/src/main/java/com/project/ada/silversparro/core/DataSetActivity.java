@@ -9,6 +9,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 
@@ -30,6 +31,8 @@ public class DataSetActivity extends AppCompatActivity {
 
     Button continueButton;
 
+    CheckBox disableResize;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -40,6 +43,7 @@ public class DataSetActivity extends AppCompatActivity {
         inputLayout = (TextInputLayout) findViewById(R.id.input_data_set);
         dummyFocus = (LinearLayout) findViewById(R.id.dummy_focus);
         dummyFocus.requestFocus();
+        disableResize = (CheckBox) findViewById(R.id.disable_resize_box);
         continueButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -55,6 +59,7 @@ public class DataSetActivity extends AppCompatActivity {
             MainApplication.showToast(R.string.please_enter_valid_dataset);
             return false;
         }else {
+            Persistence.setDisableResizeBox(disableResize.isChecked());
             Persistence.setDataSetName(inputText);
             Persistence.setImgUrlUnderProgress(null);
             startMainActivity();

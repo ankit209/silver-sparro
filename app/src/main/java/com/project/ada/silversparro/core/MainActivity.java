@@ -242,6 +242,7 @@ public class MainActivity extends Activity implements
             annotationsEditor.deleteActiveBox();
         }
         rectangleView.deactivate();
+        removeClassSelectionList();
     }
 
     AlertDialog saveAndNextDialog;
@@ -299,14 +300,7 @@ public class MainActivity extends Activity implements
         annotationsEditor.deleteActiveBox();
         rectangleView.deactivate();
         drawbleView.setDrawingEnabled(false);
-        if (classSelectionRecyclerView != null && classSelectionRecyclerView.getParent() == mainContainer){
-            mainContainer.post(new Runnable() {
-                @Override
-                public void run() {
-                    mainContainer.removeView(classSelectionRecyclerView);
-                }
-            });
-        }
+        removeClassSelectionList();
         unlockZoomButton.setText(getString(R.string.lock));
         setDrawState(DrawState.ZOOM_PAN);
     }
@@ -340,8 +334,8 @@ public class MainActivity extends Activity implements
 
     RecyclerView classSelectionRecyclerView;
 
-    private void drawClassSelectionView(final RectF activeRectangle){
-        Log.d(TAG, "drawClassSelectionView, activeRectangle = " + activeRectangle);
+    private void drawClassSelectionList(final RectF activeRectangle){
+        Log.d(TAG, "drawClassSelectionList, activeRectangle = " + activeRectangle);
 
         classSelectionRecyclerView = (RecyclerView) LayoutInflater.from(this).inflate(R.layout.class_selection_recycler_view, null);
         LinearLayoutManager layoutManager = new LinearLayoutManager(getContext());
@@ -351,8 +345,7 @@ public class MainActivity extends Activity implements
         ClassSelectionAdapter adapter = new ClassSelectionAdapter(annotationsEditor.getBoxClasses(), this);
         classSelectionRecyclerView.setAdapter(adapter);
 
-
-        int numClasses = annotationsEditor.getBoxClasses().size();
+        int numClasses = annotationsEditor.getNumClasses();
         int mainContainerHeight = mainContainer.getHeight();
         int recyclerViewEstimatedHeight = (int) Utils.convertDpToPixel(getApplicationContext(), 32*numClasses);
         Log.d(TAG, "recyclerView estimated height = " + recyclerViewEstimatedHeight
@@ -434,7 +427,11 @@ public class MainActivity extends Activity implements
         Log.d(TAG, "onPaintRectangle: " + paitedRectangle);
         // Need to activate RectangleView with it
         rectangleView.activateWith(paitedRectangle);
-        annotationsEditor.startWithFreshBox(paitedRectangle);
+        annotationsEditor.startWithFreshBox();
+        if (Persistence.isResizeBoxDisabled()){
+            // Rectangle editing is disabled by default, immediately save the newly created box
+            onClassSelected(annotationsEditor.getDefaultClassName());
+        }
     }
 
     @Override
@@ -458,6 +455,12 @@ public class MainActivity extends Activity implements
     }
 
 
+    /**
+     * Checks if the input point resides inside a saved bounding rectangle or not
+     * If it does resides then invokes the edit mode on that rectangle by drawing for colored circles on rectangle's corners
+     * @param point inputPoint
+     * @return true if input point resides inside a saved bounding rectangle false otherwise
+     */
     @Override
     public boolean highlightBoundingRectangle(Point point) {
         // transform Point's coordinates as per original image
@@ -508,14 +511,29 @@ public class MainActivity extends Activity implements
      */
     @Override
     public void onSaveRect(RectF rectF) {
-        drawClassSelectionView(rectF);
+        if (annotationsEditor.getNumClasses() > 1){
+            drawClassSelectionList(rectF);
+        }else {
+            onClassSelected(annotationsEditor.getDefaultClassName());
+        }
     }
 
     @Override
     public void onClassSelected(String className) {
         // Save the activeRectangle with className, then remove recyclerView from view hierarchy
         saveActiveRectangle(className);
-        mainContainer.removeView(classSelectionRecyclerView);
+        removeClassSelectionList();
+    }
+
+    private void removeClassSelectionList(){
+        if (classSelectionRecyclerView != null && classSelectionRecyclerView.getParent() == mainContainer){
+            mainContainer.post(new Runnable() {
+                @Override
+                public void run() {
+                    mainContainer.removeView(classSelectionRecyclerView);
+                }
+            });
+        }
         classSelectionRecyclerView = null;
     }
 
