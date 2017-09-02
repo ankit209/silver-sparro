@@ -37,6 +37,10 @@
                 <action android:name="com.google.android.gms.gcm.ACTION_TASK_READY" />
             </intent-filter>
         </service>
+        <meta-data
+            android:name="io.fabric.ApiKey"
+            android:value="8ecd8855de930af52fab0c19d5d4657dd235b03e" />
     </application>
 
+    <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

@@ -9,6 +9,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.crashlytics.android.Crashlytics;
 import com.project.ada.silversparro.utils.SharedPrefsManager;
 
 import static com.project.ada.silversparro.Constants.PREF_APP_VERSION;
@@ -40,6 +41,7 @@ public class MainApplication extends Application{
     @Override
     public void onCreate() {
         super.onCreate();
+        Fabric.with(this, new Crashlytics());
         SharedPrefsManager.initialize(this);
     }
 
