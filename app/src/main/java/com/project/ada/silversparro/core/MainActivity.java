@@ -520,21 +520,24 @@ public class MainActivity extends Activity implements
 
     @Override
     public void onClassSelected(String className) {
+        Log.d(TAG, "onClassSelected: " + className);
         // Save the activeRectangle with className, then remove recyclerView from view hierarchy
         saveActiveRectangle(className);
         removeClassSelectionList();
     }
 
     private void removeClassSelectionList(){
+        Log.d(TAG, "removeClassSelectionList");
         if (classSelectionRecyclerView != null && classSelectionRecyclerView.getParent() == mainContainer){
+            Log.d(TAG, "Will remove classSelectionRecyclerView from main container");
             mainContainer.post(new Runnable() {
                 @Override
                 public void run() {
                     mainContainer.removeView(classSelectionRecyclerView);
+                    classSelectionRecyclerView = null;
                 }
             });
         }
-        classSelectionRecyclerView = null;
     }
 
 //[RectF(376.90726, 850.0, 721.0, 584.2018), RectF(269.56836, 1068.0, 565.0, 817.0), RectF(374.70007, 1310.0, 680.0, 1050.0)]
