@@ -44,6 +44,10 @@ public class DataSetActivity extends AppCompatActivity {
         dummyFocus = (LinearLayout) findViewById(R.id.dummy_focus);
         dummyFocus.requestFocus();
         disableResize = (CheckBox) findViewById(R.id.disable_resize_box);
+        disableResize.setChecked(Persistence.isResizeBoxDisabled());
+        if (!TextUtils.isEmpty(Persistence.getDataSetName())){
+            input.setText(Persistence.getDataSetName());
+        }
         continueButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
